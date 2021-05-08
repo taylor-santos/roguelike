@@ -28,10 +28,12 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
 target_link_libraries(${PROJECT_NAME}
         glad
         glfw
+        glm
         OpenGL::GL
         ${CMAKE_DL_LIBS})
 
 target_link_libraries(${TEST_NAME}
+        glm
         doctest::doctest)
 
 if (MSVC)

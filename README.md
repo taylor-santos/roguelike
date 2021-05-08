@@ -34,7 +34,9 @@
         * X11: `xorg-dev`
         * Wayland: `libwayland-dev`
         * OSMesa: `libosmesa6-dev`
+* glm >= 0.9.9.8 (included as submodule)
 * ImGui >= 1.82 (included as submodule)
+* doctest >= 2.4.6 (included as submodule)
 
 ### Installation
 
