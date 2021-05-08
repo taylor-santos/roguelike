@@ -1,0 +1,56 @@
+language: cpp
+dist: focal
+
+jobs:
+  include:
+    - os: linux
+      name: "Coverage"
+      compiler: gcc
+      addons:
+        apt:
+          packages:
+            - lcov
+            - xorg-dev
+      before_install:
+        - pip install --user cpp-coveralls
+      script:
+        - cmake -DCMAKE_CXX_FLAGS=--coverage ..
+        - cmake --build . --target roguelike_tests -- -j 2
+        - cd ..
+        - ./build/src/roguelike_tests
+      after_success:
+        - coveralls -i "src/" -e "src/main.cpp" --gcov-options '\-lp'
+        - lcov --directory build/ --capture --output-file coverage.info
+        - lcov --list coverage.info
+        - bash <(curl -s https://codecov.io/bash) -f coverage.info
+    - os: linux
+      name: "GCC"
+      compiler: gcc
+    - os: linux
+      name: "Clang"
+      compiler: clang
+    - os: osx
+      name: "OSX"
+      osx_image: xcode12.2
+      compiler: clang
+    - os: windows
+      name: "Windows"
+      compiler: "msvc2017"
+      script:
+        - cmake -G "Visual Studio 15 2017" -A x64 ..
+        - cmake --build . --target roguelike_tests --config Release
+        - ./src/Release/roguelike_tests
+
+addons:
+  apt:
+    packages:
+      - xorg-dev
+
+before_script:
+  - mkdir -p build
+  - cd build
+
+script:
+  - cmake -DCMAKE_BUILD_TYPE=Release ..
+  - cmake --build . --target roguelike_tests -- -j 2
+  - ./src/roguelike_tests
