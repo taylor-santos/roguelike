@@ -34,10 +34,17 @@ jobs:
       osx_image: xcode12.2
       compiler: clang
     - os: windows
-      name: "Windows"
+      name: "Windows x64"
       compiler: "msvc2017"
       script:
-        - cmake -G "Visual Studio 15 2017" -A x86 ..
+        - cmake -G "Visual Studio 15 2017" -A x64 ..
+        - cmake --build . --target roguelike_tests --config Release
+        - ./src/Release/roguelike_tests
+    - os: windows
+      name: "Windows x86"
+      compiler: "msvc2017"
+      script:
+        - cmake -G "Visual Studio 15 2017" -A Win32 ..
         - cmake --build . --target roguelike_tests --config Release
         - ./src/Release/roguelike_tests
 
