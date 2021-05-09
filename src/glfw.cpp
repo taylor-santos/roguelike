@@ -132,7 +132,7 @@ TEST_CASE("WindowCreation") {
 
 Window::Window(int width, int height, const char *title)
     : window_{createWindow(width, height, title)}
-    , guiCtx_{GUI::Context()} {
+    , guiCtx_() {
     // Point the glfwWindow's User Pointer to this instance to be used in callback functions.
     glfwSetWindowUserPointer(window_, this);
     // Set callback functions
