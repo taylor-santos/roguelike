@@ -232,10 +232,20 @@ Window::swapBuffers() const {
     glfwSwapBuffers(window_);
 }
 
+TEST_CASE("SwapBuffers") {
+    auto &window = Window::get(200, 100, "title");
+    window.swapBuffers();
+}
+
 void
 Window::makeCurent() const {
     glfwMakeContextCurrent(window_);
     guiCtx_.makeCurrent();
+}
+
+TEST_CASE("WindowMakeCurrent") {
+    auto &window = Window::get(200, 100, "title");
+    window.makeCurent();
 }
 
 void
@@ -245,6 +255,11 @@ Window::render(float r, float g, float b) const {
     glViewport(0, 0, display_w, display_h);
     glClearColor(r, g, b, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
+}
+
+TEST_CASE("WindowRender") {
+    auto &window = Window::get(200, 100, "title");
+    window.render(0.5f, 1.0f, 0.8f);
 }
 
 void
@@ -271,19 +286,24 @@ TEST_CASE("WindowRegisterKeyCallback") {
         called = true;
     };
     auto &window = Window::get(200, 100, "title");
-    window.registerKeyCallback(Key::SPACE, callback);
-    auto *windowPtr = glfwGetCurrentContext();
+    SUBCASE("ValidKey") {
+        window.registerKeyCallback(Key::SPACE, callback);
+        auto *windowPtr = glfwGetCurrentContext();
 
-    SUBCASE("BeforeCallback") {
-        CHECK(called == false);
+        SUBCASE("BeforeCallback") {
+            CHECK(called == false);
+        }
+        SUBCASE("AfterCallback") {
+            WindowAccessor::keyCallback(windowPtr, GLFW_KEY_SPACE, 0, GLFW_PRESS, 0);
+            CHECK(called == true);
+        }
+        SUBCASE("DifferentKey") {
+            WindowAccessor::keyCallback(windowPtr, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
+            CHECK(called == false);
+        }
     }
-    SUBCASE("AfterCallback") {
-        WindowAccessor::keyCallback(windowPtr, GLFW_KEY_SPACE, 0, GLFW_PRESS, 0);
-        CHECK(called == true);
-    }
-    SUBCASE("DifferentKey") {
-        WindowAccessor::keyCallback(windowPtr, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
-        CHECK(called == false);
+    SUBCASE("InvalidKey") {
+        CHECK_THROWS(window.registerKeyCallback(Key::COUNT, callback));
     }
 }
 
@@ -305,19 +325,24 @@ TEST_CASE("WindowRegisterMouseCallback") {
         called = true;
     };
     auto &window = Window::get(200, 100, "title");
-    window.registerMouseCallback(Button::LEFT, callback);
-    auto *windowPtr = glfwGetCurrentContext();
+    SUBCASE("ValidKey") {
+        window.registerMouseCallback(Button::LEFT, callback);
+        auto *windowPtr = glfwGetCurrentContext();
 
-    SUBCASE("BeforeCallback") {
-        CHECK(called == false);
+        SUBCASE("BeforeCallback") {
+            CHECK(called == false);
+        }
+        SUBCASE("AfterCallback") {
+            WindowAccessor::mouseCallback(windowPtr, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+            CHECK(called == true);
+        }
+        SUBCASE("DifferentButton") {
+            WindowAccessor::mouseCallback(windowPtr, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
+            CHECK(called == false);
+        }
     }
-    SUBCASE("AfterCallback") {
-        WindowAccessor::mouseCallback(windowPtr, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
-        CHECK(called == true);
-    }
-    SUBCASE("DifferentButton") {
-        WindowAccessor::mouseCallback(windowPtr, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
-        CHECK(called == false);
+    SUBCASE("InvalidKey") {
+        CHECK_THROWS(window.registerMouseCallback(Button::COUNT, callback));
     }
 }
 
@@ -360,16 +385,30 @@ Window::setCursorPos(std::pair<double, double> pos) const {
     glfwSetCursorPos(window_, pos.first, pos.second);
 }
 
-TEST_CASE("WindowSetCursorPos") {
+TEST_CASE("WindowGetSetCursorPos") {
     auto &window = Window::get(200, 100, "title");
-    window.setCursorPos(0, 0);
-    SUBCASE("ZeroedCursorPos") {
-        auto [x, y] = window.getCursorPos();
-        SUBCASE("X") {
-            CHECK(x == 0);
+    SUBCASE("TwoArgs") {
+        window.setCursorPos(1, 2);
+        SUBCASE("ZeroedCursorPos") {
+            auto [x, y] = window.getCursorPos();
+            SUBCASE("X") {
+                CHECK(x == 1);
+            }
+            SUBCASE("Y") {
+                CHECK(y == 2);
+            }
         }
-        SUBCASE("Y") {
-            CHECK(y == 0);
+    }
+    SUBCASE("Pair") {
+        window.setCursorPos({3, 4});
+        SUBCASE("ZeroedCursorPos") {
+            auto [x, y] = window.getCursorPos();
+            SUBCASE("X") {
+                CHECK(x == 3);
+            }
+            SUBCASE("Y") {
+                CHECK(y == 4);
+            }
         }
     }
 }
@@ -398,9 +437,36 @@ Window::unlockCursor() const {
     setCursorPos(prevCursorPos_);
 }
 
+TEST_CASE("WindowLockCursor") {
+    auto &window = Window::get(200, 100, "title");
+    SUBCASE("Locked") {
+        window.lockCursor();
+        SUBCASE("UnlockLocked") {
+            window.unlockCursor();
+        }
+        SUBCASE("LockLocked") {
+            window.lockCursor();
+        }
+    }
+    SUBCASE("Unlocked") {
+        window.unlockCursor();
+        SUBCASE("UnlockUnlocked") {
+            window.unlockCursor();
+        }
+        SUBCASE("LockUnlocked") {
+            window.lockCursor();
+        }
+    }
+}
+
 void
 Manager::pollEvents() const {
     glfwPollEvents();
+}
+
+TEST_CASE("ManagerPollEvents") {
+    auto &manager = Manager::get();
+    manager.pollEvents();
 }
 
 Manager &
