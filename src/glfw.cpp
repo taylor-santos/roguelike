@@ -464,11 +464,6 @@ Manager::pollEvents() const {
     glfwPollEvents();
 }
 
-TEST_CASE("ManagerPollEvents") {
-    auto &manager = Manager::get();
-    manager.pollEvents();
-}
-
 Manager &
 Manager::get() {
     static Manager instance;
