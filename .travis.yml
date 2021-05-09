@@ -36,15 +36,10 @@ jobs:
     - os: windows
       name: "Windows x64"
       compiler: "msvc2017"
+      before_install:
+        - pacman -S mingw-w64-x86_64-mesa
       script:
         - cmake -G "Visual Studio 15 2017" -A x64 ..
-        - cmake --build . --target roguelike_tests --config Release
-        - ./src/Release/roguelike_tests
-    - os: windows
-      name: "Windows x86"
-      compiler: "msvc2017"
-      script:
-        - cmake -G "Visual Studio 15 2017" -A Win32 ..
         - cmake --build . --target roguelike_tests --config Release
         - ./src/Release/roguelike_tests
 
