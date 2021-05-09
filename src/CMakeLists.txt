@@ -13,6 +13,8 @@ set(IMGUI_SRC
 
 # Add non-main source files here
 set(BUILD_SRC
+        glfw.cpp
+        gui.cpp
         sample.cpp)
 
 set(TEST_NAME ${PROJECT_NAME}_tests)
