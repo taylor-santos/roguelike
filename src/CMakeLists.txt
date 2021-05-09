@@ -13,12 +13,14 @@ set(IMGUI_SRC
 
 # Add non-main source files here
 set(BUILD_SRC
+        glfw.cpp
+        gui.cpp
         sample.cpp)
 
 set(TEST_NAME ${PROJECT_NAME}_tests)
 
 add_executable(${PROJECT_NAME} ${IMGUI_SRC} ${BUILD_SRC} main.cpp)
-add_executable(${TEST_NAME} ${BUILD_SRC} test.cpp)
+add_executable(${TEST_NAME} ${IMGUI_SRC} ${BUILD_SRC} test.cpp)
 
 # Disable doctest code generation for the main project
 target_compile_definitions(${PROJECT_NAME} PUBLIC
@@ -33,7 +35,11 @@ target_link_libraries(${PROJECT_NAME}
         ${CMAKE_DL_LIBS})
 
 target_link_libraries(${TEST_NAME}
+        glad
+        glfw
         glm
+        OpenGL::GL
+        ${CMAKE_DL_LIBS}
         doctest::doctest)
 
 if (MSVC)

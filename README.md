@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.com/taylor-santos/roguelike.svg?branch=trunk)](https://travis-ci.com/taylor-santos/roguelike)
+[![Build status](https://ci.appveyor.com/api/projects/status/rnnoo6108i2ck1y8/branch/trunk?svg=true)](https://ci.appveyor.com/project/taylor-santos/roguelike/branch/trunk)
 [![Coverage Status](https://coveralls.io/repos/github/taylor-santos/roguelike/badge.svg?branch=trunk&kill_cache=1)](https://coveralls.io/github/taylor-santos/roguelike?branch=trunk)
 [![codecov](https://codecov.io/gh/taylor-santos/roguelike/branch/trunk/graph/badge.svg?token=EQ4YRC3D76)](https://codecov.io/gh/taylor-santos/roguelike)
 

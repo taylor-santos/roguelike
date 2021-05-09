@@ -5,6 +5,8 @@
 #include "sample.h"
 #include "doctest/doctest.h"
 
+TEST_SUITE_BEGIN("Factorial");
+
 int
 fact(int n) {
     return n <= 1 ? 1 : fact(n - 1) * n;
