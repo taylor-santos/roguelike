@@ -31,15 +31,23 @@ throwError() {
     const char *desc;
     int         error = glfwGetError(&desc);
     if (error == GLFW_NO_ERROR) {
-        throw std::logic_error("throwError() called, but no error was detected");
+        return;
     }
     std::stringstream ss;
     ss << "GLFW Error " << error << ": " << desc;
     throw std::runtime_error(ss.str());
 }
 
-TEST_CASE("throwErrorShouldThrow") {
+TEST_CASE("throwErrorShouldReturnIfNoError") {
+    CHECK_NOTHROW(throwError());
+}
+
+TEST_CASE("throwErrorShouldThrowOnError") {
+    glfwTerminate();
+    GLFWwindow *window = glfwCreateWindow(10, 10, "foo", nullptr, nullptr);
+    CHECK(window == nullptr);
     CHECK_THROWS(throwError());
+    glfwInit();
 }
 
 Initializer &
@@ -119,15 +127,13 @@ createWindow(int width, int height, const char *title) {
 }
 
 TEST_CASE("WindowCreation") {
-    glfwInit();
-    auto *window = createWindow(100, 100, "foo");
+    auto *window = createWindow(200, 100, "title");
     SUBCASE("WindowShouldNotBeNull") {
         CHECK(window != nullptr);
     }
     SUBCASE("CurrentContextShouldBeWindow") {
         CHECK(window == glfwGetCurrentContext());
     }
-    glfwTerminate();
 }
 
 Window::Window(int width, int height, const char *title)
@@ -173,6 +179,10 @@ Window::get(int width, int height, const char *title) {
     return instance;
 }
 
+TEST_CASE("WindowSingletonConstructor") {
+    CHECK_NOTHROW(Window::get(200, 100, "title"));
+}
+
 Window::~Window() {
     glfwDestroyWindow(window_);
 }
@@ -187,11 +197,34 @@ Window::setShouldClose(bool value) const {
     glfwSetWindowShouldClose(window_, value);
 }
 
+TEST_CASE("WindowSetShouldClose") {
+    auto &window = Window::get(200, 100, "title");
+    SUBCASE("false") {
+        window.setShouldClose(false);
+        CHECK(window.shouldClose() == false);
+    }
+    SUBCASE("true") {
+        window.setShouldClose(true);
+        CHECK(window.shouldClose() == true);
+    }
+}
+
 std::pair<int, int>
 Window::getFrameBufferSize() const {
     int display_w, display_h;
     glfwGetFramebufferSize(window_, &display_w, &display_h);
     return {display_w, display_h};
+}
+
+TEST_CASE("WindowGetFrameBufferSizeShouldBeWindowSize") {
+    auto &window = Window::get(200, 100, "title");
+    auto [x, y]  = window.getFrameBufferSize();
+    SUBCASE("X") {
+        CHECK(x == 200);
+    }
+    SUBCASE("Y") {
+        CHECK(y == 100);
+    }
 }
 
 void
@@ -232,6 +265,28 @@ Window::registerKeyCallback(Key key, KeyFun callback) {
     return std::exchange(keyCallbacks_[k], callback);
 }
 
+TEST_CASE("WindowRegisterKeyCallback") {
+    bool called   = false;
+    auto callback = [&called](int, int, int, int) {
+        called = true;
+    };
+    auto &window = Window::get(200, 100, "title");
+    window.registerKeyCallback(Key::SPACE, callback);
+    auto *windowPtr = glfwGetCurrentContext();
+
+    SUBCASE("BeforeCallback") {
+        CHECK(called == false);
+    }
+    SUBCASE("AfterCallback") {
+        WindowAccessor::keyCallback(windowPtr, GLFW_KEY_SPACE, 0, GLFW_PRESS, 0);
+        CHECK(called == true);
+    }
+    SUBCASE("DifferentKey") {
+        WindowAccessor::keyCallback(windowPtr, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
+        CHECK(called == false);
+    }
+}
+
 MouseFun
 Window::registerMouseCallback(Button button, MouseFun callback) {
     int b = static_cast<int>(button);
@@ -244,9 +299,49 @@ Window::registerMouseCallback(Button button, MouseFun callback) {
     return std::exchange(mouseCallbacks_[b], callback);
 }
 
+TEST_CASE("WindowRegisterMouseCallback") {
+    bool called   = false;
+    auto callback = [&called](int, int, int) {
+        called = true;
+    };
+    auto &window = Window::get(200, 100, "title");
+    window.registerMouseCallback(Button::LEFT, callback);
+    auto *windowPtr = glfwGetCurrentContext();
+
+    SUBCASE("BeforeCallback") {
+        CHECK(called == false);
+    }
+    SUBCASE("AfterCallback") {
+        WindowAccessor::mouseCallback(windowPtr, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+        CHECK(called == true);
+    }
+    SUBCASE("DifferentButton") {
+        WindowAccessor::mouseCallback(windowPtr, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
+        CHECK(called == false);
+    }
+}
+
 CursorFun
 Window::registerCursorCallback(CursorFun callback) {
     return std::exchange(cursorCallback_, callback);
+}
+
+TEST_CASE("WindowRegisterCursorCallback") {
+    bool called   = false;
+    auto callback = [&called](double, double) {
+        called = true;
+    };
+    auto &window = Window::get(200, 100, "title");
+    window.registerCursorCallback(callback);
+    auto *windowPtr = glfwGetCurrentContext();
+
+    SUBCASE("BeforeCallback") {
+        CHECK(called == false);
+    }
+    SUBCASE("AfterCallback") {
+        WindowAccessor::cursorCallback(windowPtr, 0, 0);
+        CHECK(called == true);
+    }
 }
 
 std::pair<double, double>
@@ -263,6 +358,20 @@ Window::setCursorPos(double xpos, double ypos) const {
 void
 Window::setCursorPos(std::pair<double, double> pos) const {
     glfwSetCursorPos(window_, pos.first, pos.second);
+}
+
+TEST_CASE("WindowSetCursorPos") {
+    auto &window = Window::get(200, 100, "title");
+    window.setCursorPos(0, 0);
+    SUBCASE("ZeroedCursorPos") {
+        auto [x, y] = window.getCursorPos();
+        SUBCASE("X") {
+            CHECK(x == 0);
+        }
+        SUBCASE("Y") {
+            CHECK(y == 0);
+        }
+    }
 }
 
 void
