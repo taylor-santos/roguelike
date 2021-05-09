@@ -172,7 +172,9 @@ using CursorFun = std::function<void(double x, double y)>;
 
 class Window {
 public:
-    Window(int width, int height, const char *title);
+    static Window &
+    get(int width, int height, const char *title);
+
     ~Window();
 
     Window(const Window &) = delete;
@@ -196,6 +198,9 @@ public:
 
     void
     render(float r, float g, float b) const;
+
+    void
+    updatePlatformWindows() const;
 
     KeyFun
     registerKeyCallback(Key key, KeyFun callback);
@@ -221,15 +226,16 @@ public:
     unlockCursor() const;
 
 private:
-    Initializer &             init_ = Initializer::get();
-    GLFWwindow *              window_;
-    GUI::Context              guiCtx_;
-    std::pair<double, double> prevCursorPos_{};
-
-private:
+    Initializer &                                            init_ = Initializer::get();
+    GLFWwindow *                                             window_;
+    GUI::Context                                             guiCtx_;
+    std::pair<double, double>                                prevCursorPos_{};
     std::array<KeyFun, static_cast<size_t>(Key::COUNT)>      keyCallbacks_{};
     std::array<MouseFun, static_cast<size_t>(Button::COUNT)> mouseCallbacks_{};
     CursorFun                                                cursorCallback_{};
+
+private:
+    Window(int width, int height, const char *title);
 
 private:
     // Encapsulates callback handler functions.

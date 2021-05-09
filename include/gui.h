@@ -19,6 +19,15 @@ public:
     void
     makeCurrent() const;
 
+    void
+    updatePlatformWindows() const;
+
+    [[nodiscard]] bool
+    wantCaptureMouse() const;
+
+    [[nodiscard]] bool
+    wantCaptureKeyboard() const;
+
     Context(const Context &) = delete;
     Context &
     operator=(const Context &) = delete;

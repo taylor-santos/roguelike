@@ -14,6 +14,8 @@
 
 #include "doctest/doctest.h"
 
+TEST_SUITE_BEGIN("GLFW");
+
 // Forward-declare ImGui's callback registration
 bool
 ImGui_ImplGlfw_InitForOpenGL(GLFWwindow *window, bool install_callbacks);
@@ -22,16 +24,22 @@ ImGui_ImplOpenGL3_Init(const char *glsl_version);
 
 int keyCount = GLFW_KEY_LAST;
 
-#include <iostream>
 namespace GLFW {
 
 static void
 throwError() {
-    const char *      desc;
-    int               error = glfwGetError(&desc);
+    const char *desc;
+    int         error = glfwGetError(&desc);
+    if (error == GLFW_NO_ERROR) {
+        throw std::logic_error("throwError() called, but no error was detected");
+    }
     std::stringstream ss;
     ss << "GLFW Error " << error << ": " << desc;
     throw std::runtime_error(ss.str());
+}
+
+TEST_CASE("throwErrorShouldThrow") {
+    CHECK_THROWS(throwError());
 }
 
 Initializer &
@@ -52,6 +60,7 @@ Initializer::Initializer() {
         throwError();
     }
 }
+
 Initializer::~Initializer() {
     glfwTerminate();
 }
@@ -64,8 +73,11 @@ Initializer::~Initializer() {
 struct WindowAccessor {
     static void
     keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-        auto *handler  = static_cast<Window *>(glfwGetWindowUserPointer(window));
-        auto  callback = handler->keyCallbacks_[key];
+        auto *handler = static_cast<Window *>(glfwGetWindowUserPointer(window));
+        if (handler->guiCtx_.wantCaptureKeyboard()) {
+            return;
+        }
+        auto callback = handler->keyCallbacks_[key];
         if (callback) {
             callback(key, scancode, action, mods);
         }
@@ -73,10 +85,11 @@ struct WindowAccessor {
 
     static void
     mouseCallback(GLFWwindow *window, int button, int action, int mods) {
-        auto b = static_cast<Button>(button);
-        (void)b;
-        auto *handler  = static_cast<Window *>(glfwGetWindowUserPointer(window));
-        auto  callback = handler->mouseCallbacks_[button];
+        auto *handler = static_cast<Window *>(glfwGetWindowUserPointer(window));
+        if (handler->guiCtx_.wantCaptureMouse()) {
+            return;
+        }
+        auto callback = handler->mouseCallbacks_[button];
         if (callback) {
             callback(button, action, mods);
         }
@@ -105,15 +118,27 @@ createWindow(int width, int height, const char *title) {
     return window;
 }
 
+TEST_CASE("WindowCreation") {
+    glfwInit();
+    auto *window = createWindow(100, 100, "foo");
+    SUBCASE("WindowShouldNotBeNull") {
+        CHECK(window != nullptr);
+    }
+    SUBCASE("CurrentContextShouldBeWindow") {
+        CHECK(window == glfwGetCurrentContext());
+    }
+    glfwTerminate();
+}
+
 Window::Window(int width, int height, const char *title)
     : window_{createWindow(width, height, title)}
     , guiCtx_{GUI::Context()} {
     // Point the glfwWindow's User Pointer to this instance to be used in callback functions.
     glfwSetWindowUserPointer(window_, this);
     // Set callback functions
-    //    glfwSetKeyCallback(window_, WindowAccessor::keyCallback);
-    //    glfwSetMouseButtonCallback(window_, WindowAccessor::mouseCallback);
-    //    glfwSetCursorPosCallback(window_, WindowAccessor::cursorCallback);
+    glfwSetKeyCallback(window_, WindowAccessor::keyCallback);
+    glfwSetMouseButtonCallback(window_, WindowAccessor::mouseCallback);
+    glfwSetCursorPosCallback(window_, WindowAccessor::cursorCallback);
     // Tell ImGui to insert its own callbacks after we've set our own.
     ImGui_ImplGlfw_InitForOpenGL(window_, true);
     // Decide GL+GLSL versions
@@ -139,6 +164,12 @@ Window::Window(int width, int height, const char *title)
     // glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
     ImGui_ImplOpenGL3_Init(glsl_version);
+}
+
+Window &
+Window::get(int width, int height, const char *title) {
+    static Window instance(width, height, title);
+    return instance;
 }
 
 Window::~Window() {
@@ -180,6 +211,13 @@ Window::render(float r, float g, float b) const {
     glViewport(0, 0, display_w, display_h);
     glClearColor(r, g, b, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
+}
+
+void
+Window::updatePlatformWindows() const {
+    auto *window = glfwGetCurrentContext();
+    guiCtx_.updatePlatformWindows();
+    glfwMakeContextCurrent(window);
 }
 
 KeyFun
