@@ -23,24 +23,6 @@ jobs:
         - lcov --directory build/ --capture --output-file coverage.info
         - lcov --list coverage.info
         - bash <(curl -s https://codecov.io/bash) -f coverage.info
-    - os: linux
-      name: "GCC"
-      compiler: gcc
-    - os: linux
-      name: "Clang"
-      compiler: clang
-    - os: osx
-      name: "OSX"
-      osx_image: xcode12.2
-      compiler: clang
-    - os: windows
-      name: "Windows x64"
-      compiler: cl
-      script:
-        - pacman -S mingw-w64-x86_64-mesa
-        - cmake -G "Visual Studio 15 2017" -A x64 ..
-        - cmake --build . --target roguelike_tests --config Release
-        - ./src/Release/roguelike_tests
 
 addons:
   apt:
@@ -48,28 +30,6 @@ addons:
       - xorg-dev
 services:
   - xvfb
-
-before_install:
-  - |-
-    case $TRAVIS_OS_NAME in
-      windows)
-        [[ ! -f C:/tools/msys64/msys2_shell.cmd ]] && rm -rf C:/tools/msys64
-        choco upgrade --no-progress -y msys2
-        ;;
-    esac
-
-before_cache:
-  - |-
-    case $TRAVIS_OS_NAME in
-      windows)
-        $msys2 pacman --sync --clean --noconfirm
-        ;;
-    esac
-
-cache:
-  directories:
-    - $HOME/AppData/Local/Temp/chocolatey
-    - /C/tools/msys64
 
 before_script:
   - mkdir -p build
