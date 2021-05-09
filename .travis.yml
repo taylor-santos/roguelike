@@ -37,7 +37,7 @@ jobs:
       name: "Windows"
       compiler: "msvc2017"
       script:
-        - cmake -G "Visual Studio 15 2017" -A x64 ..
+        - cmake -G "Visual Studio 15 2017" -A x86 ..
         - cmake --build . --target roguelike_tests --config Release
         - ./src/Release/roguelike_tests
 
