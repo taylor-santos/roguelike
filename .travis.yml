@@ -35,10 +35,9 @@ jobs:
       compiler: clang
     - os: windows
       name: "Windows x64"
-      compiler: "msvc2017"
-      before_install:
-        - pacman -S mingw-w64-x86_64-mesa
+      compiler: cl
       script:
+        - pacman -S mingw-w64-x86_64-mesa
         - cmake -G "Visual Studio 15 2017" -A x64 ..
         - cmake --build . --target roguelike_tests --config Release
         - ./src/Release/roguelike_tests
@@ -49,6 +48,29 @@ addons:
       - xorg-dev
 services:
   - xvfb
+
+before_install:
+  - |-
+    case $TRAVIS_OS_NAME in
+      windows)
+        [[ ! -f C:/tools/msys64/msys2_shell.cmd ]] && rm -rf C:/tools/msys64
+        choco upgrade --no-progress -y msys2
+        taskkill //IM gpg-agent.exe //F
+        ;;
+    esac
+
+before_cache:
+  - |-
+    case $TRAVIS_OS_NAME in
+      windows)
+        $msys2 pacman --sync --clean --noconfirm
+        ;;
+    esac
+
+cache:
+  directories:
+    - $HOME/AppData/Local/Temp/chocolatey
+    - /C/tools/msys64
 
 before_script:
   - mkdir -p build
