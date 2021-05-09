@@ -45,6 +45,8 @@ addons:
   apt:
     packages:
       - xorg-dev
+services:
+  - xvfb
 
 before_script:
   - mkdir -p build
