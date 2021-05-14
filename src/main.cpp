@@ -9,6 +9,7 @@
 #include "imgui_impl_opengl3.h"
 
 #include "glfw.h"
+#include "camera.h"
 
 // [Win32] Our example includes a copy of glfw3.lib pre-compiled with VS2010 to maximize ease of
 // testing and compatibility with old VS compilers. To link with VS2010-era libraries, VS2015+
@@ -19,13 +20,106 @@
 #    pragma comment(lib, "legacy_stdio_definitions")
 #endif
 
+#include <glad/glad.h>
+// Include glfw3.h after our OpenGL definitions
+#include <GLFW/glfw3.h>
+#include <iostream>
+#include <glm/gtc/type_ptr.hpp>
+
+GLuint
+createShader(const char *src, GLenum shaderType) {
+    // Create a shader and load the string as source code and compile it
+    GLuint s = glCreateShader(shaderType);
+    glShaderSource(s, 1, (const GLchar **)&src, NULL);
+    glCompileShader(s);
+
+    // Check compilation status: this will report syntax errors
+    GLint status;
+    glGetShaderiv(s, GL_COMPILE_STATUS, &status);
+    if (!status) {
+        std::cerr << "Compiling of shader failed: ";
+        char log[512];
+        glGetShaderInfoLog(s, 512, NULL, log);
+        std::cerr << log << std::endl;
+        return 0;
+    }
+
+    return s;
+}
+
+GLuint
+createShaderProgram(GLuint vertex, GLuint fragment) {
+    // Create a shader program and attach the vertex and fragment shaders
+    GLuint program = glCreateProgram();
+    glAttachShader(program, vertex);
+    glAttachShader(program, fragment);
+    return program;
+}
+
+bool
+linkShader(GLuint program) {
+    // Link the program and check the status: this will report semantics errors
+    glLinkProgram(program);
+    int status;
+    glGetProgramiv(program, GL_LINK_STATUS, &status);
+    if (!status) {
+        std::cerr << "Linking of shader failed: ";
+        char log[512];
+        glGetProgramInfoLog(program, 512, NULL, log);
+        std::cerr << log << std::endl;
+        return false;
+    }
+    return true;
+}
+
 int
 main(int, char **) {
     auto &glfw   = GLFW::Manager::get();
     auto &window = GLFW::Window::get(1280, 720, "Roguelike");
 
-    window.registerKeyCallback(GLFW::Key::ESCAPE, [&window](int, int, int, int) {
-        window.setShouldClose(true);
+    Camera camera;
+    camera.setPosition({0, 0, 2});
+    bool cursorLocked = false;
+
+    window.registerKeyCallback(GLFW::Key::ESCAPE, [&](int, int, GLFW::Action, int) {
+        window.unlockCursor();
+        cursorLocked = false;
+    });
+    window.registerMouseCallback(GLFW::Button::LEFT, [&](int, GLFW::Action, int) {
+        window.lockCursor();
+        cursorLocked = true;
+    });
+    window.registerCursorCallback([&](double x, double y) {
+        if (cursorLocked) {
+            // Downwards mouse movement increases y, so invert it.
+            camera.addRotation(static_cast<float>(x), -static_cast<float>(y));
+            window.setCursorPos(0, 0);
+        }
+    });
+    glm::vec2 velocity{0, 0};
+    window.registerKeyCallback(GLFW::Key::W, [&](int, int, GLFW::Action action, int) {
+        switch (action) {
+            case GLFW::Action::PRESS: velocity.y++; break;
+            case GLFW::Action::RELEASE: velocity.y--; break;
+        }
+    });
+    window.registerKeyCallback(GLFW::Key::S, [&](int, int, GLFW::Action action, int) {
+        switch (action) {
+            case GLFW::Action::PRESS: velocity.y--; break;
+            case GLFW::Action::RELEASE: velocity.y++; break;
+        }
+    });
+    window.registerKeyCallback(GLFW::Key::A, [&](int, int, GLFW::Action action, int) {
+        switch (action) {
+            case GLFW::Action::PRESS: velocity.x++; break;
+            case GLFW::Action::RELEASE: velocity.x--; break;
+        }
+    });
+    window.registerKeyCallback(GLFW::Key::D, [&](int, int, GLFW::Action action, int) {
+        switch (action) {
+            case GLFW::Action::PRESS: velocity.x--; break;
+            case GLFW::Action::RELEASE: velocity.x++; break;
+        }
     });
 
     ImGuiIO &io = ImGui::GetIO();
@@ -40,7 +134,7 @@ main(int, char **) {
     ImGuiStyle &style = ImGui::GetStyle();
     if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
         style.WindowRounding              = 0.0f;
-        style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+        style.Colors[ImGuiCol_WindowBg].w = 0.8f;
     }
     // Load Fonts
     // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple
@@ -63,13 +157,132 @@ main(int, char **) {
     // ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL,
     // io.Fonts->GetGlyphRangesJapanese()); IM_ASSERT(font != NULL);
 
+    const char *VERTEX_SRC =
+        "#version 330 core\n"
+        "layout(location=0) in vec2 position;" // Vertex position (x, y)
+        "layout(location=1) in vec3 color;"    // Vertex color (r, g, b)
+        "out vec3 fColor;"                     // Vertex shader has to pass color to fragment shader
+        "uniform mat4 MVP;"
+        "void main()"
+        "{"
+        "    fColor = color;"                             // Pass color to fragment shader
+        "    gl_Position = MVP*vec4(position, 0.0, 1.0);" // Place vertex at (x, y, 0, 1)
+        "}";
+
+    const char *FRAGMENT_SRC =
+        "#version 330 core\n"
+        "in vec3 fColor;"       // From the vertex shader
+        "out vec4 outputColor;" // The color of the resulting fragment
+        "void main()"
+        "{"
+        "    outputColor = vec4(fColor, 1.0);" // Color it (r, g, b, 1.0) for fully opaque
+        "}";
+
+    GLuint vertex = createShader(VERTEX_SRC, GL_VERTEX_SHADER);
+    if (!vertex) {
+        return -1;
+    }
+    GLuint fragment = createShader(FRAGMENT_SRC, GL_FRAGMENT_SHADER);
+    if (!fragment) {
+        return -1;
+    }
+    GLuint program = createShaderProgram(vertex, fragment);
+    if (!program) {
+        return -1;
+    }
+    if (!linkShader(program)) {
+        return -1;
+    }
+    glDetachShader(program, vertex);
+    glDeleteShader(vertex);
+    glDetachShader(program, fragment);
+    glDeleteShader(fragment);
+
+    glUseProgram(program);
+
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    GLuint vbo;
+    glGenBuffers(1, &vbo);
+
+    float vertices[] = {
+        /* vertex0 */
+        -1.0f,
+        -1.0f,
+        0.0f,
+        /* color0 */
+        1.0f,
+        0.0f,
+        0.0f,
+
+        /* vertex1 */
+        0.0f,
+        0.5f,
+        0.0f,
+        /* color1 */
+        0.0f,
+        1.0f,
+        0.0f,
+
+        /* vertex2 */
+        1.0f,
+        -1.0f,
+        0.0f,
+        /* color2 */
+        0.0f,
+        0.0f,
+        1.0f,
+    };
+
+    // Upload the vertices to the buffer
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    // Enable the vertex attributes and upload their data (see: layout(location=x))
+    glEnableVertexAttribArray(0); // position
+    // 2 floats: x and y, but 5 floats in total per row
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), nullptr);
+    glEnableVertexAttribArray(1); // color
+    // 3 floats: r, g and b, but 5 floats in total per row and start at the third one
+    glVertexAttribPointer(
+        1,
+        3,
+        GL_FLOAT,
+        GL_FALSE,
+        6 * sizeof(GLfloat),
+        (void *)(3 * sizeof(GLfloat)));
+
     // Our state
     bool   show_demo_window    = true;
     bool   show_another_window = false;
     ImVec4 clear_color         = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    double lastTime            = glfwGetTime();
 
     // Main loop
     while (!window.shouldClose()) {
+        auto deltaTime = glfwGetTime() - lastTime;
+        lastTime       = glfwGetTime();
+
+        auto pos     = camera.getPosition();
+        auto forward = camera.forward();
+        auto left    = camera.left();
+        auto up      = camera.up();
+        pos += static_cast<float>(deltaTime) * (velocity.x * left + velocity.y * forward);
+        camera.setPosition(pos);
+        std::cout << "[" << pos.x << ", " << pos.y << ", " << pos.z << "] ->" << std::endl;
+        std::cout << "\tx (" << left.x << ", " << left.y << ", " << left.z << ")" << std::endl;
+        std::cout << "\ty (" << up.x << ", " << up.y << ", " << up.z << ")" << std::endl;
+        std::cout << "\tz (" << forward.x << ", " << forward.y << ", " << forward.z << ")"
+                  << std::endl;
+        //        vertices[0]  = (float)sin(glfwGetTime());
+        //        vertices[6]  = (float)sin(glfwGetTime()) + 1;
+        //        vertices[12] = (float)sin(glfwGetTime());
+        //        vertices[5]  = (float)sin(glfwGetTime());
+        //        vertices[10] = (float)sin(glfwGetTime());
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
         // Poll and handle events (inputs, window resize, etc.)
         // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui
         // wants to use your inputs.
@@ -142,7 +355,19 @@ main(int, char **) {
 
         // Rendering
         ImGui::Render();
-        window.render(clear_color.x, clear_color.y, clear_color.z);
+        window.drawBackground(clear_color.x, clear_color.y, clear_color.z);
+
+        auto [display_w, display_h] = window.getFrameBufferSize();
+
+        glm::mat4 mvp = camera.getMatrix((float)display_w / (float)display_h);
+
+        GLint matID = glGetUniformLocation(program, "MVP");
+
+        glUniformMatrix4fv(matID, 1, GL_FALSE, glm::value_ptr(mvp));
+
+        // The VAO is still bound so just draw the 3 vertices
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         window.updatePlatformWindows();
         window.swapBuffers();

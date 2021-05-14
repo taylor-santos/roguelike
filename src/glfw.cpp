@@ -87,7 +87,7 @@ struct WindowAccessor {
         }
         auto callback = handler->keyCallbacks_[key];
         if (callback) {
-            callback(key, scancode, action, mods);
+            callback(key, scancode, static_cast<Action>(action), mods);
         }
     }
 
@@ -99,7 +99,7 @@ struct WindowAccessor {
         }
         auto callback = handler->mouseCallbacks_[button];
         if (callback) {
-            callback(button, action, mods);
+            callback(button, static_cast<Action>(action), mods);
         }
     }
 
@@ -115,6 +115,28 @@ struct WindowAccessor {
 
 static GLFWwindow *
 createWindow(int width, int height, const char *title) {
+    // Decide GL+GLSL versions
+#if defined(IMGUI_IMPL_OPENGL_ES2)
+    // GL ES 2.0 + GLSL 100
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+#elif defined(__APPLE__)
+    // GL 3.2 + GLSL 150
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // 3.2+ only
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);           // Required on Mac
+    glfwWindowHint(GLFW_STENCIL_BITS, 8);
+#else
+    // GL 3.0 + GLSL 130
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
+    // glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
+#endif
+    // Enable 4xMSAA
+    glfwWindowHint(GLFW_SAMPLES, 4);
     GLFWwindow *window = glfwCreateWindow(width, height, title, nullptr, nullptr);
     if (!window) {
         throwError();
@@ -151,26 +173,15 @@ Window::Window(int width, int height, const char *title)
 #if defined(IMGUI_IMPL_OPENGL_ES2)
     // GL ES 2.0 + GLSL 100
     const char *glsl_version = "#version 100";
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
 #elif defined(__APPLE__)
     // GL 3.2 + GLSL 150
     const char *glsl_version = "#version 150";
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // 3.2+ only
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);           // Required on Mac
-    glfwWindowHint(GLFW_STENCIL_BITS, 8);
 #else
     // GL 3.0 + GLSL 130
     const char *glsl_version = "#version 130";
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
-    // glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
     ImGui_ImplOpenGL3_Init(glsl_version);
+    glEnable(GL_MULTISAMPLE);
 }
 
 Window &
@@ -249,7 +260,7 @@ TEST_CASE("WindowMakeCurrent") {
 }
 
 void
-Window::render(float r, float g, float b) const {
+Window::drawBackground(float r, float g, float b) const {
     auto [display_w, display_h] = getFrameBufferSize();
 
     glViewport(0, 0, display_w, display_h);
@@ -257,9 +268,9 @@ Window::render(float r, float g, float b) const {
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
-TEST_CASE("WindowRender") {
+TEST_CASE("WindowDrawBackground") {
     auto &window = Window::get(200, 100, "title");
-    window.render(0.5f, 1.0f, 0.8f);
+    window.drawBackground(0.5f, 1.0f, 0.8f);
 }
 
 void
@@ -282,7 +293,7 @@ Window::registerKeyCallback(Key key, KeyFun callback) {
 
 TEST_CASE("WindowRegisterKeyCallback") {
     bool called   = false;
-    auto callback = [&called](int, int, int, int) {
+    auto callback = [&called](int, int, GLFW::Action, int) {
         called = true;
     };
     auto &window = Window::get(200, 100, "title");
@@ -321,7 +332,7 @@ Window::registerMouseCallback(Button button, MouseFun callback) {
 
 TEST_CASE("WindowRegisterMouseCallback") {
     bool called   = false;
-    auto callback = [&called](int, int, int) {
+    auto callback = [&called](int, GLFW::Action, int) {
         called = true;
     };
     auto &window = Window::get(200, 100, "title");

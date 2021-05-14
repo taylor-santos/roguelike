@@ -12,9 +12,11 @@ Context::Context()
     : ctx_{ImGui::CreateContext()} {
     IMGUI_CHECKVERSION();
     ImGui::SetCurrentContext(ctx_);
+    /*
     ImGuiIO &io = ImGui::GetIO();
     // Enable Multi-Viewport / Platform Windows
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+     */
 }
 
 Context::~Context() {
