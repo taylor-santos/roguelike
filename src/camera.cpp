@@ -158,7 +158,7 @@ TEST_CASE("CameraProjection") {
     camera.setNear(near);
     camera.setFar(far);
     camera.setFOV(90);
-    for (int pitch = -0; pitch <= 90; pitch += 10) {
+    for (int pitch = -90; pitch <= 90; pitch += 10) {
         INFO("Pitch   = ", pitch, " degrees");
         for (int yaw = 0; yaw < 360; yaw += 10) {
             INFO("Yaw     = ", yaw, " degrees");
