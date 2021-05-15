@@ -154,6 +154,8 @@ enum class Button {
     MIDDLE = THREE
 };
 
+enum class Action { RELEASE = 0, PRESS = 1, REPEAT = 2 };
+
 class Initializer {
 public:
     static Initializer &
@@ -166,8 +168,8 @@ private:
     ~Initializer();
 };
 
-using KeyFun    = std::function<void(int key, int scancode, int action, int mods)>;
-using MouseFun  = std::function<void(int button, int action, int mods)>;
+using KeyFun    = std::function<void(int key, int scancode, Action action, int mods)>;
+using MouseFun  = std::function<void(int button, Action action, int mods)>;
 using CursorFun = std::function<void(double x, double y)>;
 
 class Window {
@@ -197,19 +199,19 @@ public:
     makeCurent() const;
 
     void
-    render(float r, float g, float b) const;
+    drawBackground(float r, float g, float b) const;
 
     void
     updatePlatformWindows() const;
 
     KeyFun
-    registerKeyCallback(Key key, KeyFun callback);
+    registerKeyCallback(Key key, const KeyFun &callback);
 
     MouseFun
-    registerMouseCallback(Button button, MouseFun callback);
+    registerMouseCallback(Button button, const MouseFun &callback);
 
     CursorFun
-    registerCursorCallback(CursorFun callback);
+    registerCursorCallback(const CursorFun &callback);
 
     [[nodiscard]] std::pair<double, double>
     getCursorPos() const;

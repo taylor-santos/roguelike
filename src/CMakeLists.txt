@@ -15,7 +15,7 @@ set(IMGUI_SRC
 set(BUILD_SRC
         glfw.cpp
         gui.cpp
-        sample.cpp)
+        camera.cpp)
 
 set(TEST_NAME ${PROJECT_NAME}_tests)
 
