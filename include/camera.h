@@ -37,17 +37,29 @@ public:
     void
     addRotation(float yaw, float pitch);
 
+    [[nodiscard]] std::pair<float, float>
+    getRotation() const;
+
     void
     setRotation(float yaw, float pitch);
 
-    [[nodiscard]] std::pair<float, float>
-    getRotation() const;
+    float
+    getNear() const;
+
+    void
+    setNear(float near);
+
+    float
+    getFar() const;
+
+    void
+    setFar(float far);
 
     [[nodiscard]] glm::vec3
     forward() const;
 
     [[nodiscard]] glm::vec3
-    left() const;
+    right() const;
 
     [[nodiscard]] glm::vec3
     up() const;
@@ -58,10 +70,13 @@ public:
 private:
     std::pair<float, float> sens_{0.1f, 0.1f};
     float                   yaw_{glm::pi<float>()};
-    float                   pitch_{0.0};
+    float                   pitch_{0.0f};
     float                   fov_{glm::half_pi<float>()};
+    float                   near_{0.01f};
+    float                   far_{1000.0f};
     glm::vec3               pos_{0, 0, 0};
 
+public:
 private:
     [[nodiscard]] glm::mat4
     viewMatrix() const;

@@ -109,13 +109,13 @@ main(int, char **) {
             case GLFW::Action::RELEASE: velocity.y++; break;
         }
     });
-    window.registerKeyCallback(GLFW::Key::A, [&](int, int, GLFW::Action action, int) {
+    window.registerKeyCallback(GLFW::Key::D, [&](int, int, GLFW::Action action, int) {
         switch (action) {
             case GLFW::Action::PRESS: velocity.x++; break;
             case GLFW::Action::RELEASE: velocity.x--; break;
         }
     });
-    window.registerKeyCallback(GLFW::Key::D, [&](int, int, GLFW::Action action, int) {
+    window.registerKeyCallback(GLFW::Key::A, [&](int, int, GLFW::Action action, int) {
         switch (action) {
             case GLFW::Action::PRESS: velocity.x--; break;
             case GLFW::Action::RELEASE: velocity.x++; break;
@@ -267,12 +267,12 @@ main(int, char **) {
 
         auto pos     = camera.getPosition();
         auto forward = camera.forward();
-        auto left    = camera.left();
+        auto right   = camera.right();
         auto up      = camera.up();
-        pos += static_cast<float>(deltaTime) * (velocity.x * left + velocity.y * forward);
+        pos += static_cast<float>(deltaTime) * (velocity.x * right + velocity.y * forward);
         camera.setPosition(pos);
         std::cout << "[" << pos.x << ", " << pos.y << ", " << pos.z << "] ->" << std::endl;
-        std::cout << "\tx (" << left.x << ", " << left.y << ", " << left.z << ")" << std::endl;
+        std::cout << "\tx (" << right.x << ", " << right.y << ", " << right.z << ")" << std::endl;
         std::cout << "\ty (" << up.x << ", " << up.y << ", " << up.z << ")" << std::endl;
         std::cout << "\tz (" << forward.x << ", " << forward.y << ", " << forward.z << ")"
                   << std::endl;

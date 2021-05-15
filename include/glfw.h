@@ -205,13 +205,13 @@ public:
     updatePlatformWindows() const;
 
     KeyFun
-    registerKeyCallback(Key key, KeyFun callback);
+    registerKeyCallback(Key key, const KeyFun &callback);
 
     MouseFun
-    registerMouseCallback(Button button, MouseFun callback);
+    registerMouseCallback(Button button, const MouseFun &callback);
 
     CursorFun
-    registerCursorCallback(CursorFun callback);
+    registerCursorCallback(const CursorFun &callback);
 
     [[nodiscard]] std::pair<double, double>
     getCursorPos() const;

@@ -14,8 +14,6 @@
 
 #include "doctest/doctest.h"
 
-TEST_SUITE_BEGIN("GLFW");
-
 // Forward-declare ImGui's callback registration
 bool
 ImGui_ImplGlfw_InitForOpenGL(GLFWwindow *window, bool install_callbacks);
@@ -38,29 +36,10 @@ throwError() {
     throw std::runtime_error(ss.str());
 }
 
-TEST_CASE("throwErrorShouldReturnIfNoError") {
-    CHECK_NOTHROW(throwError());
-}
-
-TEST_CASE("throwErrorShouldThrowOnError") {
-    glfwTerminate();
-    GLFWwindow *window = glfwCreateWindow(10, 10, "foo", nullptr, nullptr);
-    CHECK(window == nullptr);
-    CHECK_THROWS(throwError());
-    glfwInit();
-}
-
 Initializer &
 Initializer::get() {
     static Initializer instance;
     return instance;
-}
-
-TEST_CASE("InitializerShouldBeSingleton") {
-    auto &init1 = Initializer::get();
-    auto &init2 = Initializer::get();
-
-    CHECK(&init1 == &init2);
 }
 
 Initializer::Initializer() {
@@ -148,16 +127,6 @@ createWindow(int width, int height, const char *title) {
     return window;
 }
 
-TEST_CASE("WindowCreation") {
-    auto *window = createWindow(200, 100, "title");
-    SUBCASE("WindowShouldNotBeNull") {
-        CHECK(window != nullptr);
-    }
-    SUBCASE("CurrentContextShouldBeWindow") {
-        CHECK(window == glfwGetCurrentContext());
-    }
-}
-
 Window::Window(int width, int height, const char *title)
     : window_{createWindow(width, height, title)}
     , guiCtx_() {
@@ -190,10 +159,6 @@ Window::get(int width, int height, const char *title) {
     return instance;
 }
 
-TEST_CASE("WindowSingletonConstructor") {
-    CHECK_NOTHROW(Window::get(200, 100, "title"));
-}
-
 Window::~Window() {
     glfwDestroyWindow(window_);
 }
@@ -208,6 +173,157 @@ Window::setShouldClose(bool value) const {
     glfwSetWindowShouldClose(window_, value);
 }
 
+std::pair<int, int>
+Window::getFrameBufferSize() const {
+    int display_w, display_h;
+    glfwGetFramebufferSize(window_, &display_w, &display_h);
+    return {display_w, display_h};
+}
+
+void
+Window::swapBuffers() const {
+    glfwSwapBuffers(window_);
+}
+
+void
+Window::makeCurent() const {
+    glfwMakeContextCurrent(window_);
+    guiCtx_.makeCurrent();
+}
+
+void
+Window::drawBackground(float r, float g, float b) const {
+    auto [display_w, display_h] = getFrameBufferSize();
+
+    glViewport(0, 0, display_w, display_h);
+    glClearColor(r, g, b, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+}
+
+void
+Window::updatePlatformWindows() const {
+    auto *window = glfwGetCurrentContext();
+    guiCtx_.updatePlatformWindows();
+    glfwMakeContextCurrent(window);
+}
+
+KeyFun
+Window::registerKeyCallback(Key key, const KeyFun &callback) {
+    int k = static_cast<int>(key);
+    if (k < 0 || GLFW_KEY_LAST <= k) {
+        std::stringstream ss;
+        ss << "error: key " << k << " is outside the valid range [0, " << GLFW_KEY_LAST << ")";
+        throw std::invalid_argument(ss.str());
+    }
+    return std::exchange(keyCallbacks_[k], callback);
+}
+
+MouseFun
+Window::registerMouseCallback(Button button, const MouseFun &callback) {
+    int b = static_cast<int>(button);
+    if (b < 0 || GLFW_MOUSE_BUTTON_LAST <= b) {
+        std::stringstream ss;
+        ss << "error: button " << b << " is outside the valid range [0, " << GLFW_MOUSE_BUTTON_LAST
+           << ")";
+        throw std::invalid_argument(ss.str());
+    }
+    return std::exchange(mouseCallbacks_[b], callback);
+}
+
+CursorFun
+Window::registerCursorCallback(const CursorFun &callback) {
+    return std::exchange(cursorCallback_, callback);
+}
+
+std::pair<double, double>
+Window::getCursorPos() const {
+    double x, y;
+    glfwGetCursorPos(window_, &x, &y);
+    return {x, y};
+}
+
+void
+Window::setCursorPos(double xpos, double ypos) const {
+    glfwSetCursorPos(window_, xpos, ypos);
+}
+void
+Window::setCursorPos(std::pair<double, double> pos) const {
+    glfwSetCursorPos(window_, pos.first, pos.second);
+}
+
+void
+Window::lockCursor() {
+    if (glfwGetInputMode(window_, GLFW_CURSOR) == GLFW_CURSOR_DISABLED) {
+        return;
+    }
+    prevCursorPos_ = getCursorPos();
+    // Set cursor mode
+    glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    if (glfwRawMouseMotionSupported()) {
+        glfwSetInputMode(window_, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+    }
+    // Set the cursor position to 0,0 initially so it doesn't jump when first moved.
+    glfwSetCursorPos(window_, 0, 0);
+}
+
+void
+Window::unlockCursor() const {
+    if (glfwGetInputMode(window_, GLFW_CURSOR) == GLFW_CURSOR_NORMAL) {
+        return;
+    }
+    glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    setCursorPos(prevCursorPos_);
+}
+
+void
+Manager::pollEvents() const {
+    glfwPollEvents();
+}
+
+Manager &
+Manager::get() {
+    static Manager instance;
+    return instance;
+}
+Manager::Manager() = default;
+
+Manager::~Manager() = default;
+
+TEST_SUITE_BEGIN("GLFW");
+
+TEST_CASE("throwErrorShouldReturnIfNoError") {
+    CHECK_NOTHROW(throwError());
+}
+
+TEST_CASE("throwErrorShouldThrowOnError") {
+    glfwTerminate();
+    GLFWwindow *window = glfwCreateWindow(10, 10, "foo", nullptr, nullptr);
+    CHECK(window == nullptr);
+    CHECK_THROWS(throwError());
+    glfwInit();
+}
+
+TEST_CASE("InitializerShouldBeSingleton") {
+    auto &init1 = Initializer::get();
+    auto &init2 = Initializer::get();
+
+    CHECK(&init1 == &init2);
+}
+
+TEST_CASE("WindowCreation") {
+    auto *window = createWindow(200, 100, "title");
+    SUBCASE("WindowShouldNotBeNull") {
+        CHECK(window != nullptr);
+    }
+    SUBCASE("CurrentContextShouldBeWindow") {
+        CHECK(window == glfwGetCurrentContext());
+    }
+}
+
+TEST_CASE("WindowSingletonConstructor") {
+    CHECK_NOTHROW(Window::get(200, 100, "title"));
+}
+
 TEST_CASE("WindowSetShouldClose") {
     auto &window = Window::get(200, 100, "title");
     SUBCASE("false") {
@@ -218,13 +334,6 @@ TEST_CASE("WindowSetShouldClose") {
         window.setShouldClose(true);
         CHECK(window.shouldClose() == true);
     }
-}
-
-std::pair<int, int>
-Window::getFrameBufferSize() const {
-    int display_w, display_h;
-    glfwGetFramebufferSize(window_, &display_w, &display_h);
-    return {display_w, display_h};
 }
 
 TEST_CASE("WindowGetFrameBufferSizeShouldBeWindowSize") {
@@ -238,20 +347,9 @@ TEST_CASE("WindowGetFrameBufferSizeShouldBeWindowSize") {
     }
 }
 
-void
-Window::swapBuffers() const {
-    glfwSwapBuffers(window_);
-}
-
 TEST_CASE("SwapBuffers") {
     auto &window = Window::get(200, 100, "title");
     window.swapBuffers();
-}
-
-void
-Window::makeCurent() const {
-    glfwMakeContextCurrent(window_);
-    guiCtx_.makeCurrent();
 }
 
 TEST_CASE("WindowMakeCurrent") {
@@ -259,36 +357,9 @@ TEST_CASE("WindowMakeCurrent") {
     window.makeCurent();
 }
 
-void
-Window::drawBackground(float r, float g, float b) const {
-    auto [display_w, display_h] = getFrameBufferSize();
-
-    glViewport(0, 0, display_w, display_h);
-    glClearColor(r, g, b, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-}
-
 TEST_CASE("WindowDrawBackground") {
     auto &window = Window::get(200, 100, "title");
     window.drawBackground(0.5f, 1.0f, 0.8f);
-}
-
-void
-Window::updatePlatformWindows() const {
-    auto *window = glfwGetCurrentContext();
-    guiCtx_.updatePlatformWindows();
-    glfwMakeContextCurrent(window);
-}
-
-KeyFun
-Window::registerKeyCallback(Key key, KeyFun callback) {
-    int k = static_cast<int>(key);
-    if (k < 0 || GLFW_KEY_LAST <= k) {
-        std::stringstream ss;
-        ss << "error: key " << k << " is outside the valid range [0, " << GLFW_KEY_LAST << ")";
-        throw std::invalid_argument(ss.str());
-    }
-    return std::exchange(keyCallbacks_[k], callback);
 }
 
 TEST_CASE("WindowRegisterKeyCallback") {
@@ -318,18 +389,6 @@ TEST_CASE("WindowRegisterKeyCallback") {
     }
 }
 
-MouseFun
-Window::registerMouseCallback(Button button, MouseFun callback) {
-    int b = static_cast<int>(button);
-    if (b < 0 || GLFW_MOUSE_BUTTON_LAST <= b) {
-        std::stringstream ss;
-        ss << "error: button " << b << " is outside the valid range [0, " << GLFW_MOUSE_BUTTON_LAST
-           << ")";
-        throw std::invalid_argument(ss.str());
-    }
-    return std::exchange(mouseCallbacks_[b], callback);
-}
-
 TEST_CASE("WindowRegisterMouseCallback") {
     bool called   = false;
     auto callback = [&called](int, GLFW::Action, int) {
@@ -357,11 +416,6 @@ TEST_CASE("WindowRegisterMouseCallback") {
     }
 }
 
-CursorFun
-Window::registerCursorCallback(CursorFun callback) {
-    return std::exchange(cursorCallback_, callback);
-}
-
 TEST_CASE("WindowRegisterCursorCallback") {
     bool called   = false;
     auto callback = [&called](double, double) {
@@ -378,22 +432,6 @@ TEST_CASE("WindowRegisterCursorCallback") {
         WindowAccessor::cursorCallback(windowPtr, 0, 0);
         CHECK(called == true);
     }
-}
-
-std::pair<double, double>
-Window::getCursorPos() const {
-    double x, y;
-    glfwGetCursorPos(window_, &x, &y);
-    return {x, y};
-}
-
-void
-Window::setCursorPos(double xpos, double ypos) const {
-    glfwSetCursorPos(window_, xpos, ypos);
-}
-void
-Window::setCursorPos(std::pair<double, double> pos) const {
-    glfwSetCursorPos(window_, pos.first, pos.second);
 }
 
 TEST_CASE("WindowGetSetCursorPos") {
@@ -424,30 +462,6 @@ TEST_CASE("WindowGetSetCursorPos") {
     }
 }
 
-void
-Window::lockCursor() {
-    if (glfwGetInputMode(window_, GLFW_CURSOR) == GLFW_CURSOR_DISABLED) {
-        return;
-    }
-    prevCursorPos_ = getCursorPos();
-    // Set cursor mode
-    glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    if (glfwRawMouseMotionSupported()) {
-        glfwSetInputMode(window_, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
-    }
-    // Set the cursor position to 0,0 initially so it doesn't jump when first moved.
-    glfwSetCursorPos(window_, 0, 0);
-}
-
-void
-Window::unlockCursor() const {
-    if (glfwGetInputMode(window_, GLFW_CURSOR) == GLFW_CURSOR_NORMAL) {
-        return;
-    }
-    glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-    setCursorPos(prevCursorPos_);
-}
-
 TEST_CASE("WindowLockCursor") {
     auto &window = Window::get(200, 100, "title");
     SUBCASE("Locked") {
@@ -469,19 +483,5 @@ TEST_CASE("WindowLockCursor") {
         }
     }
 }
-
-void
-Manager::pollEvents() const {
-    glfwPollEvents();
-}
-
-Manager &
-Manager::get() {
-    static Manager instance;
-    return instance;
-}
-Manager::Manager() = default;
-
-Manager::~Manager() = default;
 
 } // namespace GLFW

@@ -34,6 +34,7 @@ Context::updatePlatformWindows() const {
     ImGui::UpdatePlatformWindows();
     ImGui::RenderPlatformWindowsDefault();
 }
+
 bool
 Context::wantCaptureMouse() const {
     makeCurrent();
