@@ -10,6 +10,9 @@
 
 #include "glfw.h"
 #include "camera.h"
+#include "transform.h"
+
+#include "glm/gtx/matrix_decompose.hpp"
 
 // [Win32] Our example includes a copy of glfw3.lib pre-compiled with VS2010 to maximize ease of
 // testing and compatibility with old VS compilers. To link with VS2010-era libraries, VS2015+
@@ -74,6 +77,24 @@ linkShader(GLuint program) {
 
 int
 main(int, char **) {
+    Transform transform;
+    transform.setLocalSkew({5, -3, 1});
+    transform.setLocalScale({2, 1, 4});
+    auto mat = transform.localToWorldMatrix();
+
+    glm::vec3 expect_scale{};
+    glm::quat expect_rotation{};
+    glm::vec3 expect_translation{};
+    glm::vec3 expect_skew{};
+    glm::vec4 expect_perspective{};
+    glm::decompose(
+        mat,
+        expect_scale,
+        expect_rotation,
+        expect_translation,
+        expect_skew,
+        expect_perspective);
+
     auto &glfw   = GLFW::Manager::get();
     auto &window = GLFW::Window::get(1280, 720, "Roguelike");
 
@@ -101,24 +122,28 @@ main(int, char **) {
         switch (action) {
             case GLFW::Action::PRESS: velocity.y++; break;
             case GLFW::Action::RELEASE: velocity.y--; break;
+            case GLFW::Action::REPEAT: break;
         }
     });
     window.registerKeyCallback(GLFW::Key::S, [&](int, int, GLFW::Action action, int) {
         switch (action) {
             case GLFW::Action::PRESS: velocity.y--; break;
             case GLFW::Action::RELEASE: velocity.y++; break;
+            case GLFW::Action::REPEAT: break;
         }
     });
     window.registerKeyCallback(GLFW::Key::D, [&](int, int, GLFW::Action action, int) {
         switch (action) {
             case GLFW::Action::PRESS: velocity.x++; break;
             case GLFW::Action::RELEASE: velocity.x--; break;
+            case GLFW::Action::REPEAT: break;
         }
     });
     window.registerKeyCallback(GLFW::Key::A, [&](int, int, GLFW::Action action, int) {
         switch (action) {
             case GLFW::Action::PRESS: velocity.x--; break;
             case GLFW::Action::RELEASE: velocity.x++; break;
+            case GLFW::Action::REPEAT: break;
         }
     });
 
@@ -159,14 +184,15 @@ main(int, char **) {
 
     const char *VERTEX_SRC =
         "#version 330 core\n"
-        "layout(location=0) in vec2 position;" // Vertex position (x, y)
+        "layout(location=0) in vec3 position;" // Vertex position (x, y, z)
         "layout(location=1) in vec3 color;"    // Vertex color (r, g, b)
         "out vec3 fColor;"                     // Vertex shader has to pass color to fragment shader
         "uniform mat4 MVP;"
+        "uniform mat4 obj;"
         "void main()"
         "{"
-        "    fColor = color;"                             // Pass color to fragment shader
-        "    gl_Position = MVP*vec4(position, 0.0, 1.0);" // Place vertex at (x, y, 0, 1)
+        "    fColor = color;"                            // Pass color to fragment shader
+        "    gl_Position = MVP*obj*vec4(position, 1.0);" // Place vertex at (x, y, z, 1)
         "}";
 
     const char *FRAGMENT_SRC =
@@ -200,52 +226,152 @@ main(int, char **) {
 
     glUseProgram(program);
 
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-
-    GLuint vbo;
-    glGenBuffers(1, &vbo);
-
-    float vertices[] = {
+    const float vertices[] = {
         /* vertex0 */
-        -1.0f,
-        -1.0f,
-        0.0f,
+        -0.5f,
+        -0.5f,
+        -0.5f,
         /* color0 */
-        1.0f,
+        0.0f,
         0.0f,
         0.0f,
 
         /* vertex1 */
-        0.0f,
         0.5f,
-        0.0f,
+        -0.5f,
+        -0.5f,
         /* color1 */
-        0.0f,
         1.0f,
+        0.0f,
         0.0f,
 
         /* vertex2 */
-        1.0f,
-        -1.0f,
-        0.0f,
+        -0.5f,
+        0.5f,
+        -0.5f,
         /* color2 */
         0.0f,
+        1.0f,
         0.0f,
+
+        /* vertex3 */
+        0.5f,
+        0.5f,
+        -0.5f,
+        /* color3 */
+        1.0f,
+        1.0f,
+        0.0f,
+
+        /* vertex4 */
+        -0.5f,
+        -0.5f,
+        0.5f,
+        /* color4 */
+        0.0f,
+        0.0f,
+        1.0f,
+
+        /* vertex5 */
+        0.5f,
+        -0.5f,
+        0.5f,
+        /* color5 */
+        1.0f,
+        0.0f,
+        1.0f,
+
+        /* vertex6 */
+        -0.5f,
+        0.5f,
+        0.5f,
+        /* color6 */
+        0.0f,
+        1.0f,
+        1.0f,
+
+        /* vertex7 */
+        0.5f,
+        0.5f,
+        0.5f,
+        /* color7 */
+        1.0f,
+        1.0f,
         1.0f,
     };
 
+    const GLushort indices[]{
+        /* Triangle 0 */
+        0,
+        2,
+        1,
+        /* Triangle 1 */
+        1,
+        2,
+        3,
+        /* Triangle 2 */
+        0,
+        4,
+        2,
+        /* Triangle 3 */
+        2,
+        4,
+        6,
+        /* Triangle 4 */
+        4,
+        7,
+        6,
+        /* Triangle 5 */
+        4,
+        5,
+        7,
+        /* Triangle 6 */
+        1,
+        7,
+        5,
+        /* Triangle 7 */
+        1,
+        3,
+        7,
+        /* Triangle 8 */
+        7,
+        3,
+        2,
+        /* Triangle 9 */
+        7,
+        2,
+        6,
+        /* Triangle 10 */
+        1,
+        5,
+        0,
+        /* Triangle 11 */
+        5,
+        4,
+        0,
+    };
+
+    GLuint ibo;
+    glGenBuffers(1, &ibo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+
+    GLuint vbo;
+    glGenBuffers(1, &vbo);
+
     // Upload the vertices to the buffer
+    glBindVertexArray(vao);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     // Enable the vertex attributes and upload their data (see: layout(location=x))
     glEnableVertexAttribArray(0); // position
-    // 2 floats: x and y, but 5 floats in total per row
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), nullptr);
     glEnableVertexAttribArray(1); // color
-    // 3 floats: r, g and b, but 5 floats in total per row and start at the third one
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), nullptr);
     glVertexAttribPointer(
         1,
         3,
@@ -254,43 +380,94 @@ main(int, char **) {
         6 * sizeof(GLfloat),
         (void *)(3 * sizeof(GLfloat)));
 
-    // Our state
-    bool   show_demo_window    = true;
-    bool   show_another_window = false;
-    ImVec4 clear_color         = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-    double lastTime            = glfwGetTime();
+    glBindVertexArray(0);
 
+    glEnable(GL_DEPTH_TEST);
+
+    glFrontFace(GL_CCW);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+
+    // Our state
+    //    bool      show_demo_window    = true;
+    //    bool      show_another_window = false;
+    ImVec4    clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    float     lastTime    = static_cast<float>(glfwGetTime());
+    Transform parentTransform;
+    Transform otherTransform;
+    Transform childTransform(parentTransform);
+    otherTransform.setLocalPosition({-1, 1, 0});
+    otherTransform.setLocalScale({1, 0.5f, 1});
+    otherTransform.setLocalRotation(glm::angleAxis(glm::radians(5.f), glm::vec3{0, 1, 0}));
+    otherTransform.setLocalSkew({0.2, -1, 0.5});
+
+    childTransform.setLocalPosition({-1.5, 0, 0});
+    //    childTransform.setLocalScale({-0.5f, 1.f, -1.f});
+
+    //    parentTransform.scaleDirection({1, 0, 0}, 0.5);
+
+    int scale = 0;
+    int rot   = 0;
+
+    window.registerKeyCallback(GLFW::Key::Q, [&](int, int, GLFW::Action action, int) {
+        if (action == GLFW::Action::PRESS) {
+            childTransform.setParent(&parentTransform);
+        }
+    });
+    window.registerKeyCallback(GLFW::Key::E, [&](int, int, GLFW::Action action, int) {
+        if (action == GLFW::Action::PRESS) {
+            childTransform.setParent(&otherTransform);
+        }
+    });
+    window.registerKeyCallback(GLFW::Key::R, [&](int, int, GLFW::Action action, int) {
+        switch (action) {
+            case GLFW::Action::PRESS: rot--; break;
+            case GLFW::Action::RELEASE: rot++; break;
+            default: break;
+        }
+    });
+    window.registerKeyCallback(GLFW::Key::F, [&](int, int, GLFW::Action action, int) {
+        switch (action) {
+            case GLFW::Action::PRESS: rot++; break;
+            case GLFW::Action::RELEASE: rot--; break;
+            default: break;
+        }
+    });
+
+    glfwSwapInterval(1);
     // Main loop
     while (!window.shouldClose()) {
-        auto deltaTime = glfwGetTime() - lastTime;
-        lastTime       = glfwGetTime();
+        float deltaTime = static_cast<float>(glfwGetTime()) - lastTime;
+        lastTime        = static_cast<float>(glfwGetTime());
 
-        auto pos     = camera.getPosition();
+        auto pos     = camera.position();
         auto forward = camera.forward();
         auto right   = camera.right();
-        auto up      = camera.up();
-        pos += static_cast<float>(deltaTime) * (velocity.x * right + velocity.y * forward);
+        pos += deltaTime * (velocity.x * right + velocity.y * forward);
         camera.setPosition(pos);
-        std::cout << "[" << pos.x << ", " << pos.y << ", " << pos.z << "] ->" << std::endl;
-        std::cout << "\tx (" << right.x << ", " << right.y << ", " << right.z << ")" << std::endl;
-        std::cout << "\ty (" << up.x << ", " << up.y << ", " << up.z << ")" << std::endl;
-        std::cout << "\tz (" << forward.x << ", " << forward.y << ", " << forward.z << ")"
-                  << std::endl;
-        //        vertices[0]  = (float)sin(glfwGetTime());
-        //        vertices[6]  = (float)sin(glfwGetTime()) + 1;
-        //        vertices[12] = (float)sin(glfwGetTime());
-        //        vertices[5]  = (float)sin(glfwGetTime());
-        //        vertices[10] = (float)sin(glfwGetTime());
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+        if (scale) {
+            childTransform.setParent(&otherTransform);
+        }
+
+        otherTransform.setLocalSkew({0, 0, 1 + glm::cos(lastTime)})
+            .setLocalScale({glm::sin(2 * lastTime), 1, 1});
+        // parentTransform.setLocalRotation(glm::angleAxis(lastTime, glm::vec3{1, 0, 0}));
+        parentTransform.setLocalRotation(glm::angleAxis(lastTime / 2, glm::vec3{0, 1, 0}));
+        //        childTransform.setLocalSkew({0, 0, 1 + glm::cos(lastTime)});
+
+        //        objectTransform.resetScale();
+        //        objectTransform.scaleDirection(
+        //            glm::vec3{1, 1, 0} * (1 + glm::cos(static_cast<float>(lastTime))));
+
         // Poll and handle events (inputs, window resize, etc.)
-        // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui
-        // wants to use your inputs.
+        // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear
+        // imgui wants to use your inputs.
         // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main
         // application.
-        // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main
-        // application. Generally you may always pass all inputs to dear imgui, and hide them from
-        // your application based on those two flags.
+        // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your
+        // main application. Generally you may always pass all inputs to dear imgui, and hide
+        // them from your application based on those two flags.
 
         window.makeCurent();
         glfw.pollEvents();
@@ -299,7 +476,7 @@ main(int, char **) {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-
+        /*
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You
         // can browse its code to learn more about Dear ImGui!).
         if (show_demo_window) ImGui::ShowDemoWindow(&show_demo_window);
@@ -352,21 +529,46 @@ main(int, char **) {
             if (ImGui::Button("Close Me")) show_another_window = false;
             ImGui::End();
         }
+         */
 
         // Rendering
+        glClear(GL_DEPTH_BUFFER_BIT);
         ImGui::Render();
         window.drawBackground(clear_color.x, clear_color.y, clear_color.z);
 
         auto [display_w, display_h] = window.getFrameBufferSize();
 
-        glm::mat4 mvp = camera.getMatrix((float)display_w / (float)display_h);
+        glm::mat4 mvp   = camera.getMatrix((float)display_w / (float)display_h);
+        GLint     mvpID = glGetUniformLocation(program, "MVP");
+        glUniformMatrix4fv(mvpID, 1, GL_FALSE, glm::value_ptr(mvp));
 
-        GLint matID = glGetUniformLocation(program, "MVP");
+        {
+            glm::mat4 obj   = parentTransform.localToWorldMatrix();
+            GLint     objID = glGetUniformLocation(program, "obj");
+            glUniformMatrix4fv(objID, 1, GL_FALSE, glm::value_ptr(obj));
 
-        glUniformMatrix4fv(matID, 1, GL_FALSE, glm::value_ptr(mvp));
+            glBindVertexArray(vao);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+            glDrawElements(GL_TRIANGLES, sizeof(indices), GL_UNSIGNED_SHORT, nullptr);
+        }
+        {
+            glm::mat4 obj   = childTransform.localToWorldMatrix();
+            GLint     objID = glGetUniformLocation(program, "obj");
+            glUniformMatrix4fv(objID, 1, GL_FALSE, glm::value_ptr(obj));
 
-        // The VAO is still bound so just draw the 3 vertices
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+            glBindVertexArray(vao);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+            glDrawElements(GL_TRIANGLES, sizeof(indices), GL_UNSIGNED_SHORT, nullptr);
+        }
+        {
+            glm::mat4 obj   = otherTransform.localToWorldMatrix();
+            GLint     objID = glGetUniformLocation(program, "obj");
+            glUniformMatrix4fv(objID, 1, GL_FALSE, glm::value_ptr(obj));
+
+            glBindVertexArray(vao);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+            glDrawElements(GL_TRIANGLES, sizeof(indices), GL_UNSIGNED_SHORT, nullptr);
+        }
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         window.updatePlatformWindows();
