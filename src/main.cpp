@@ -12,8 +12,6 @@
 #include "camera.h"
 #include "transform.h"
 
-#include "glm/gtx/matrix_decompose.hpp"
-
 // [Win32] Our example includes a copy of glfw3.lib pre-compiled with VS2010 to maximize ease of
 // testing and compatibility with old VS compilers. To link with VS2010-era libraries, VS2015+
 // requires linking with legacy_stdio_definitions.lib, which we do using this pragma. Your own
@@ -28,6 +26,7 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/random.hpp>
 
 GLuint
 createShader(const char *src, GLenum shaderType) {
@@ -77,29 +76,11 @@ linkShader(GLuint program) {
 
 int
 main(int, char **) {
-    Transform transform;
-    transform.setLocalSkew({5, -3, 1});
-    transform.setLocalScale({2, 1, 4});
-    auto mat = transform.localToWorldMatrix();
-
-    glm::vec3 expect_scale{};
-    glm::quat expect_rotation{};
-    glm::vec3 expect_translation{};
-    glm::vec3 expect_skew{};
-    glm::vec4 expect_perspective{};
-    glm::decompose(
-        mat,
-        expect_scale,
-        expect_rotation,
-        expect_translation,
-        expect_skew,
-        expect_perspective);
-
     auto &glfw   = GLFW::Manager::get();
     auto &window = GLFW::Window::get(1280, 720, "Roguelike");
 
     Camera camera;
-    camera.setPosition({0, 0, 2});
+    camera.transform.setPosition({0, 0, 2});
     bool cursorLocked = false;
 
     window.registerKeyCallback(GLFW::Key::ESCAPE, [&](int, int, GLFW::Action, int) {
@@ -199,9 +180,12 @@ main(int, char **) {
         "#version 330 core\n"
         "in vec3 fColor;"       // From the vertex shader
         "out vec4 outputColor;" // The color of the resulting fragment
+        "uniform bool red;"
         "void main()"
         "{"
-        "    outputColor = vec4(fColor, 1.0);" // Color it (r, g, b, 1.0) for fully opaque
+        "    outputColor = red ? vec4(1,fColor.y,fColor.z,1) : vec4(fColor, 1.0);" // Color it (r,
+                                                                                   // g, b, 1.0) for
+                                                                                   // fully opaque
         "}";
 
     GLuint vertex = createShader(VERTEX_SRC, GL_VERTEX_SHADER);
@@ -389,85 +373,46 @@ main(int, char **) {
     glCullFace(GL_BACK);
 
     // Our state
-    //    bool      show_demo_window    = true;
-    //    bool      show_another_window = false;
-    ImVec4    clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-    float     lastTime    = static_cast<float>(glfwGetTime());
-    Transform parentTransform;
-    Transform otherTransform;
-    Transform childTransform(parentTransform);
-    otherTransform.setLocalPosition({-1, 1, 0});
-    otherTransform.setLocalScale({1, 0.5f, 1});
-    otherTransform.setLocalRotation(glm::angleAxis(glm::radians(5.f), glm::vec3{0, 1, 0}));
-    otherTransform.setLocalSkew({0.2, -1, 0.5});
+    bool                   show_demo_window    = true;
+    bool                   show_another_window = false;
+    ImVec4                 clear_color         = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    double                 lastTime            = glfwGetTime();
+    double                 deltaTime           = 0;
+    std::vector<Transform> transforms;
+    transforms.emplace_back();
+    transforms.emplace_back(Transform::Builder().withParent(transforms[0]).withPosition({2, 0, 0}));
+    transforms.emplace_back(Transform::Builder().withParent(transforms[1]));
+    transforms.emplace_back(Transform::Builder().withParent(transforms[1]).withPosition({2, 0, 0}));
+    transforms.emplace_back(Transform::Builder().withParent(transforms[1]).withPosition({4, 0, 0}));
 
-    childTransform.setLocalPosition({-1.5, 0, 0});
-    //    childTransform.setLocalScale({-0.5f, 1.f, -1.f});
-
-    //    parentTransform.scaleDirection({1, 0, 0}, 0.5);
-
-    int scale = 0;
-    int rot   = 0;
-
-    window.registerKeyCallback(GLFW::Key::Q, [&](int, int, GLFW::Action action, int) {
-        if (action == GLFW::Action::PRESS) {
-            childTransform.setParent(&parentTransform);
-        }
-    });
-    window.registerKeyCallback(GLFW::Key::E, [&](int, int, GLFW::Action action, int) {
-        if (action == GLFW::Action::PRESS) {
-            childTransform.setParent(&otherTransform);
-        }
-    });
-    window.registerKeyCallback(GLFW::Key::R, [&](int, int, GLFW::Action action, int) {
-        switch (action) {
-            case GLFW::Action::PRESS: rot--; break;
-            case GLFW::Action::RELEASE: rot++; break;
-            default: break;
-        }
-    });
-    window.registerKeyCallback(GLFW::Key::F, [&](int, int, GLFW::Action action, int) {
-        switch (action) {
-            case GLFW::Action::PRESS: rot++; break;
-            case GLFW::Action::RELEASE: rot--; break;
-            default: break;
-        }
-    });
-
-    glfwSwapInterval(1);
+    glfwSwapInterval(0);
     // Main loop
     while (!window.shouldClose()) {
-        float deltaTime = static_cast<float>(glfwGetTime()) - lastTime;
-        lastTime        = static_cast<float>(glfwGetTime());
+        deltaTime = glfwGetTime() - lastTime;
+        lastTime  = glfwGetTime();
 
-        auto pos     = camera.position();
+        auto pos     = camera.transform.position();
         auto forward = camera.forward();
         auto right   = camera.right();
-        pos += deltaTime * (velocity.x * right + velocity.y * forward);
-        camera.setPosition(pos);
+        pos += static_cast<float>(deltaTime) * (velocity.x * right + velocity.y * forward);
+        camera.transform.setLocalPosition(pos);
 
-        if (scale) {
-            childTransform.setParent(&otherTransform);
-        }
-
-        otherTransform.setLocalSkew({0, 0, 1 + glm::cos(lastTime)})
-            .setLocalScale({glm::sin(2 * lastTime), 1, 1});
-        // parentTransform.setLocalRotation(glm::angleAxis(lastTime, glm::vec3{1, 0, 0}));
-        parentTransform.setLocalRotation(glm::angleAxis(lastTime / 2, glm::vec3{0, 1, 0}));
-        //        childTransform.setLocalSkew({0, 0, 1 + glm::cos(lastTime)});
-
-        //        objectTransform.resetScale();
-        //        objectTransform.scaleDirection(
-        //            glm::vec3{1, 1, 0} * (1 + glm::cos(static_cast<float>(lastTime))));
+        transforms[0].setLocalRotation(glm::angleAxis(lastTime, glm::dvec3{0, 0, 1}));
+        transforms[0].setLocalSkew({glm::cos(lastTime), 0, 0});
+        transforms[1].setLocalRotation(glm::angleAxis(lastTime, glm::dvec3{0, 1, 0}));
+        transforms[1].setLocalScale({1, 1, 0.5});
+        transforms[2].setPosition({1, 1, 1});
+        transforms[3].setScale({1, 1, 1});
+        transforms[4].setSkew({0, 0, 0});
 
         // Poll and handle events (inputs, window resize, etc.)
-        // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear
-        // imgui wants to use your inputs.
-        // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main
-        // application.
-        // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your
-        // main application. Generally you may always pass all inputs to dear imgui, and hide
-        // them from your application based on those two flags.
+        // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if
+        // dear imgui wants to use your inputs.
+        // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your
+        // main application.
+        // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to
+        // your main application. Generally you may always pass all inputs to dear
+        // imgui, and hide them from your application based on those two flags.
 
         window.makeCurent();
         glfw.pollEvents();
@@ -476,7 +421,7 @@ main(int, char **) {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-        /*
+
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You
         // can browse its code to learn more about Dear ImGui!).
         if (show_demo_window) ImGui::ShowDemoWindow(&show_demo_window);
@@ -491,7 +436,7 @@ main(int, char **) {
                 "Hello, world!"); // Create a window called "Hello, world!" and append into it.
 
             ImGui::Text("This is some useful text."); // Display some text (you can use a format
-                                                      // strings too)
+            // strings too)
             ImGui::Checkbox(
                 "Demo Window",
                 &show_demo_window); // Edit bools storing our window open/close state
@@ -507,7 +452,7 @@ main(int, char **) {
                 (float *)&clear_color); // Edit 3 floats representing a color
 
             if (ImGui::Button("Button")) // Buttons return true when clicked (most widgets return
-                                         // true when edited/activated)
+                // true when edited/activated)
                 counter++;
             ImGui::SameLine();
             ImGui::Text("counter = %d", counter);
@@ -524,12 +469,11 @@ main(int, char **) {
             ImGui::Begin(
                 "Another Window",
                 &show_another_window); // Pass a pointer to our bool variable (the window will have
-                                       // a closing button that will clear the bool when clicked)
+            // a closing button that will clear the bool when clicked)
             ImGui::Text("Hello from another window!");
-            if (ImGui::Button("Close Me")) show_another_window = false;
+            if (ImGui::Button("CloseMe")) show_another_window = false;
             ImGui::End();
         }
-         */
 
         // Rendering
         glClear(GL_DEPTH_BUFFER_BIT);
@@ -541,28 +485,9 @@ main(int, char **) {
         glm::mat4 mvp   = camera.getMatrix((float)display_w / (float)display_h);
         GLint     mvpID = glGetUniformLocation(program, "MVP");
         glUniformMatrix4fv(mvpID, 1, GL_FALSE, glm::value_ptr(mvp));
-
-        {
-            glm::mat4 obj   = parentTransform.localToWorldMatrix();
-            GLint     objID = glGetUniformLocation(program, "obj");
-            glUniformMatrix4fv(objID, 1, GL_FALSE, glm::value_ptr(obj));
-
-            glBindVertexArray(vao);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-            glDrawElements(GL_TRIANGLES, sizeof(indices), GL_UNSIGNED_SHORT, nullptr);
-        }
-        {
-            glm::mat4 obj   = childTransform.localToWorldMatrix();
-            GLint     objID = glGetUniformLocation(program, "obj");
-            glUniformMatrix4fv(objID, 1, GL_FALSE, glm::value_ptr(obj));
-
-            glBindVertexArray(vao);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-            glDrawElements(GL_TRIANGLES, sizeof(indices), GL_UNSIGNED_SHORT, nullptr);
-        }
-        {
-            glm::mat4 obj   = otherTransform.localToWorldMatrix();
-            GLint     objID = glGetUniformLocation(program, "obj");
+        GLint objID = glGetUniformLocation(program, "obj");
+        for (auto &transform : transforms) {
+            glm::mat4 obj = transform.localToWorldMatrix();
             glUniformMatrix4fv(objID, 1, GL_FALSE, glm::value_ptr(obj));
 
             glBindVertexArray(vao);

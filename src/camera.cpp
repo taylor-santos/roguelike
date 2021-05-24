@@ -13,17 +13,6 @@
 #include "transform.h"
 #include "doctest/doctest.h"
 
-namespace glm {
-std::ostream &
-operator<<(std::ostream &os, const vec3 &vec) {
-    os << std::setprecision(3) << std::fixed << "(";
-    os << std::right << std::setw(6) << vec.x << ", ";
-    os << std::right << std::setw(6) << vec.y << ", ";
-    os << std::right << std::setw(6) << vec.z << ")";
-    return os;
-}
-} // namespace glm
-
 std::pair<float, float>
 Camera::getSensitivity() const {
     return sens_;
@@ -112,7 +101,7 @@ Camera::up() const {
 
 glm::mat4
 Camera::viewMatrix() const {
-    auto pos = position();
+    glm::vec3 pos = transform.position();
     return glm::lookAt(pos, pos + forward(), up());
 }
 
@@ -129,6 +118,7 @@ Camera::getMatrix(float aspect) const {
 }
 
 TEST_SUITE_BEGIN("Camera");
+DOCTEST_CLANG_SUPPRESS_WARNING_WITH_PUSH("-Wunused-variable")
 
 #define INFO_VEC(msg, v) INFO((msg), "(", (v).x, ", ", (v).y, ", ", (v).z, ")")
 
@@ -143,7 +133,7 @@ TEST_SUITE_BEGIN("Camera");
 
 TEST_CASE("CameraProjection") {
     Camera camera;
-    camera.setLocalPosition({1, -2, 3});
+    camera.transform.setLocalPosition({1, -2, 3});
     float near = 1.0f;
     float far  = 10.0f;
     camera.setNear(near);
@@ -169,8 +159,8 @@ TEST_CASE("CameraProjection") {
             TEST_VEC_EQ(glm::cross(up, -forward), right);
             TEST_VEC_EQ(glm::cross(-forward, right), up);
 
-            auto mat = camera.getMatrix(1.0);
-            auto pos = camera.position();
+            auto      mat = camera.getMatrix(1.0);
+            glm::vec3 pos = camera.transform.position();
             for (int x = -1; x <= 1; x++) {
                 auto xpos = static_cast<float>(x) * right;
                 for (int y = -1; y <= 1; y++) {
@@ -187,13 +177,6 @@ TEST_CASE("CameraProjection") {
             }
         }
     }
-}
-
-TEST_CASE("VectorStreamOperator") {
-    std::stringstream ss;
-    glm::vec3         vec{1.233, -1.111, 9.9999};
-    ss << vec;
-    CHECK(ss.str() == "( 1.233, -1.111, 10.000)");
 }
 
 TEST_CASE("CameraSensitivity") {
@@ -305,3 +288,5 @@ TEST_CASE("CameraAddRotation") {
         CHECK(pitch == doctest::Approx(-90));
     }
 }
+
+DOCTEST_CLANG_SUPPRESS_WARNING_POP

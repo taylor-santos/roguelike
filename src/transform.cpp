@@ -5,108 +5,403 @@
 
 #include <functional>
 #include <ostream>
-#include <iostream>
 
-#include "glm/gtx/matrix_decompose.hpp"
 #include "glm/gtc/random.hpp"
+#include "glm/ext/matrix_relational.hpp"
 #include "doctest/doctest.h"
-#include "util.h"
 
-static glm::mat3
-cholesky(glm::mat3 A) {
-    // https://rosettacode.org/wiki/Cholesky_decomposition
-    auto l11 = glm::sqrt(A[0][0]);
-    auto l21 = 1.f / l11 * A[0][1];
-    auto l22 = glm::sqrt(A[1][1] - l21 * l21);
-    auto l31 = 1.f / l11 * A[0][2];
-    auto l32 = 1.f / l22 * (A[1][2] - l31 * l21);
-    auto l33 = glm::sqrt(A[2][2] - (l31 * l31 + l32 * l32));
-    return glm::mat3{{l11, 0, 0}, {l21, l22, 0}, {l31, l32, l33}};
-};
+#define EPSILON 0.00001
 
-static void
-decompose(glm::mat4 mat, glm::vec3 &T, glm::mat3 &R, glm::vec3 &Z, glm::vec3 &S) {
-    // https://github.com/matthew-brett/transforms3d/blob/master/transforms3d/affines.py
-    T             = mat[3];
-    glm::mat3 RZS = mat;
-    auto      ZS  = cholesky(glm::transpose(RZS) * RZS);
-    Z             = glm::vec3{ZS[0][0], ZS[1][1], ZS[2][2]};
-    glm::mat3 shears{ZS[0] / Z[0], ZS[1] / Z[1], ZS[2] / Z[2]};
-    S = glm::vec3{shears[1][0], shears[2][0], shears[2][1]};
-    R = RZS * glm::inverse(ZS);
-    if (glm::determinant(R) < 0) {
-        Z[0] *= -1;
-        ZS[0] *= -1;
-        R = RZS * glm::inverse(ZS);
-    }
-    R = glm::transpose(R);
-}
-
-static glm::quat
-matToQuat(glm::mat3 mat) {
+/***
+ * Convert a rotation matrix to its equivalent quaternion.
+ * @param mat a 3x3 rotation matrix
+ * @return the quaternion representing the same rotation as the input matrix
+ */
+static glm::dquat
+matToQuat(glm::dmat3 mat) {
     // https://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
-    glm::quat q;
-    float trace = mat[0][0] + mat[1][1] + mat[2][2]; // I removed + 1.0f; see discussion with Ethan
-    if (trace > 0) {                                 // I changed M_EPSILON to 0
-        float s = 0.5f / sqrtf(trace + 1.0f);
-        q.w     = 0.25f / s;
-        q.x     = (mat[1][2] - mat[2][1]) * s;
-        q.y     = (mat[2][0] - mat[0][2]) * s;
-        q.z     = (mat[0][1] - mat[1][0]) * s;
+    glm::dquat q;
+    auto       trace = mat[0][0] + mat[1][1] + mat[2][2];
+    if (trace > 0) {
+        auto s = 0.5 / glm::sqrt(trace + 1.0);
+        q.w    = 0.25 / s;
+        q.x    = (mat[1][2] - mat[2][1]) * s;
+        q.y    = (mat[2][0] - mat[0][2]) * s;
+        q.z    = (mat[0][1] - mat[1][0]) * s;
     } else {
         if (mat[0][0] > mat[1][1] && mat[0][0] > mat[2][2]) {
-            float s = 2.0f * sqrtf(1.0f + mat[0][0] - mat[1][1] - mat[2][2]);
-            q.w     = (mat[1][2] - mat[2][1]) / s;
-            q.x     = 0.25f * s;
-            q.y     = (mat[1][0] + mat[0][1]) / s;
-            q.z     = (mat[2][0] + mat[0][2]) / s;
+            auto s = 2.0 * glm::sqrt(1.0 + mat[0][0] - mat[1][1] - mat[2][2]);
+            q.w    = (mat[1][2] - mat[2][1]) / s;
+            q.x    = 0.25 * s;
+            q.y    = (mat[1][0] + mat[0][1]) / s;
+            q.z    = (mat[2][0] + mat[0][2]) / s;
         } else if (mat[1][1] > mat[2][2]) {
-            float s = 2.0f * sqrtf(1.0f + mat[1][1] - mat[0][0] - mat[2][2]);
-            q.w     = (mat[2][0] - mat[0][2]) / s;
-            q.x     = (mat[1][0] + mat[0][1]) / s;
-            q.y     = 0.25f * s;
-            q.z     = (mat[2][1] + mat[1][2]) / s;
+            auto s = 2.0 * glm::sqrt(1.0 + mat[1][1] - mat[0][0] - mat[2][2]);
+            q.w    = (mat[2][0] - mat[0][2]) / s;
+            q.x    = (mat[1][0] + mat[0][1]) / s;
+            q.y    = 0.25 * s;
+            q.z    = (mat[2][1] + mat[1][2]) / s;
         } else {
-            float s = 2.0f * sqrtf(1.0f + mat[2][2] - mat[0][0] - mat[1][1]);
-            q.w     = (mat[0][1] - mat[1][0]) / s;
-            q.x     = (mat[2][0] + mat[0][2]) / s;
-            q.y     = (mat[2][1] + mat[1][2]) / s;
-            q.z     = 0.25f * s;
+            auto s = 2.0 * glm::sqrt(1.0 + mat[2][2] - mat[0][0] - mat[1][1]);
+            q.w    = (mat[0][1] - mat[1][0]) / s;
+            q.x    = (mat[2][0] + mat[0][2]) / s;
+            q.y    = (mat[2][1] + mat[1][2]) / s;
+            q.z    = 0.25 * s;
         }
     }
+    q = glm::normalize(q);
+    CHECK(glm::all(glm::equal(glm::toMat3(q), mat, EPSILON)));
     return q;
 }
 
-Transform::Transform(Transform *parent, glm::vec3 position)
+/***
+ * Apply the Cholesky decomposition to a given matrix.
+ * @param A the 3x3 matrix to be decomposed
+ * @return the Cholesky decomposition of the input matrix
+ */
+static glm::dmat3
+cholesky(glm::dmat3 A) {
+    // https://rosettacode.org/wiki/Cholesky_decomposition#C.2B.2B
+    glm::dmat3 result{0};
+    for (int i = 0; i < 3; ++i) {
+        for (int k = 0; k < i; ++k) {
+            auto value = A[i][k];
+            for (int j = 0; j < k; ++j) value -= result[i][j] * result[k][j];
+            result[i][k] = value / result[k][k];
+        }
+        auto value = A[i][i];
+        for (int j = 0; j < i; ++j) value -= result[i][j] * result[i][j];
+        result[i][i] = glm::sqrt(value);
+    }
+    return result;
+}
+
+/***
+ * Decompose an affine matrix into its constituent parts: translation, rotation, scale, and skew.
+ * @param mat the 4x4 affine matrix to be decomposed
+ * @return a struct that contains the translation, rotation, scale, and skew that make up the matrix
+ */
+static Transform::Properties
+decompose(glm::dmat4 mat) {
+    // https://github.com/matthew-brett/transforms3d/blob/master/transforms3d/affines.py
+    glm::dvec3 translation;
+    glm::dquat rotation;
+    glm::dvec3 scale;
+    glm::dvec3 skew;
+    translation    = mat[3];
+    glm::dmat3 RZS = mat; // Strip off translation components
+    auto       ZS  = cholesky(glm::transpose(RZS) * RZS);
+    scale          = glm::dvec3{ZS[0][0], ZS[1][1], ZS[2][2]};
+    auto ZST       = glm::transpose(ZS);
+    auto shears =
+        glm::transpose(glm::dmat3{ZST[0] / scale[0], ZST[1] / scale[1], ZST[2] / scale[2]});
+    skew        = glm::dvec3{shears[1][0], shears[2][0], shears[2][1]};
+    auto rotMat = RZS * glm::inverse(ZS);
+    if (glm::determinant(rotMat) < 0) {
+        scale[0] *= -1;
+        ZS[0] *= -1;
+        rotMat = RZS * glm::inverse(ZS);
+    }
+    rotation = matToQuat(rotMat);
+    return {translation, rotation, scale, skew};
+}
+
+/***
+ * Reconstruct an affine matrix from its translation, rotation, scale, and skew.
+ * @param mat a struct containing translation, rotation, scale, and skew to be joined into a matrix
+ * @return a 4x4 affine matrix representing the same transformation as the input parameters
+ */
+static glm::dmat4
+recompose(const Transform::Properties &mat) {
+    auto       rotMat = glm::toMat3(mat.rotation);
+    glm::dmat3 skewMat{1};
+    skewMat[1][0] = mat.skew.x;
+    skewMat[2][0] = mat.skew.y;
+    skewMat[2][1] = mat.skew.z;
+    glm::dmat3 scaleMat{0};
+    scaleMat[0][0] = mat.scale[0];
+    scaleMat[1][1] = mat.scale[1];
+    scaleMat[2][2] = mat.scale[2];
+    auto A         = rotMat * scaleMat * skewMat;
+    return glm::dmat4{
+        glm::dvec4{A[0], 0},
+        glm::dvec4{A[1], 0},
+        glm::dvec4{A[2], 0},
+        glm::dvec4{mat.translation, 1}};
+}
+
+/***
+ * Reconstruct an affine matrix from the inverse of its translation, rotation, scale, and skew.
+ * @param mat a struct containing the inverse translation, rotation, scale, and skew to be joined
+ *            into a matrix
+ * @return a 4x4 affine matrix representing the inverted transformation of the input parameters
+ */
+static glm::dmat4
+recomposeInverse(const Transform::Properties &mat) {
+    auto       rotMat = glm::toMat4(glm::conjugate(mat.rotation));
+    glm::dmat4 skewMat{1};
+    skewMat[1][0] = -mat.skew.x;
+    skewMat[2][0] = mat.skew.x * mat.skew.z - mat.skew.y;
+    skewMat[2][1] = -mat.skew.z;
+    glm::dmat4 scaleMat{1};
+    scaleMat[0][0] = 1 / mat.scale[0];
+    scaleMat[1][1] = 1 / mat.scale[1];
+    scaleMat[2][2] = 1 / mat.scale[2];
+    glm::dmat4 trMat{1};
+    trMat[3] = glm::dvec4{-mat.translation, 1};
+    return skewMat * scaleMat * rotMat * trMat;
+}
+
+Transform::Transform() = default;
+
+Transform::Transform(Transform *parent, Properties properties)
     : parent_{parent}
-    , localPosition_{position} {
+    , locals_{properties} {
     if (parent_) {
-        parent_->children_.emplace_back(this);
+        parent_->addChild(this);
+        CHECK(parent_ == parent);
+        CHECK(*parentIt_ == this);
+        CHECK(std::find(parent_->children_.begin(), parent_->children_.end(), this) == parentIt_);
     }
 }
 
-Transform::Transform()
-    : Transform(nullptr, {0, 0, 0}) {}
+Transform::Transform(const Transform &other)
+    : Transform(other.parent_, other.locals_) {}
 
-Transform::Transform(glm::vec3 position)
-    : Transform(nullptr, position) {}
+Transform::Transform(Transform &&other) noexcept
+    : Transform() {
+    swap(*this, other);
+}
 
-Transform::Transform(Transform &parent)
-    : Transform(&parent, {0, 0, 0}) {}
+Transform &
+Transform::operator=(const Transform &other) {
+    if (this == &other) return *this;
+    Transform temp(other);
+    swap(*this, temp);
+    return *this;
+}
 
-Transform::Transform(Transform &parent, glm::vec3 position)
-    : Transform(&parent, position) {}
+Transform &
+Transform::operator=(Transform &&other) noexcept {
+    swap(*this, other);
+    return *this;
+}
 
 Transform::~Transform() {
     if (parent_) {
-        parent_->children_.erase(
-            std::remove(parent_->children_.begin(), parent_->children_.end(), this),
-            parent_->children_.end());
+        parent_->children_.erase(parentIt_);
     }
+    while (!children_.empty()) {
+        // Readjust children's local properties to keep them fixed in world space.
+        auto child = children_.front();
+        child->setParent(nullptr);
+        CHECK(child->parent_ == nullptr);
+        CHECK(std::find(children_.begin(), children_.end(), child) == children_.end());
+    }
+}
+
+bool
+Transform::operator==(const Transform &other) const {
+    if (parent_ != other.parent_) return false;
+    if (glm::any(glm::epsilonNotEqual(locals_.translation, other.locals_.translation, EPSILON)))
+        return false;
+    if (glm::any(glm::notEqual(
+            glm::toMat3(locals_.rotation),
+            glm::toMat3(other.locals_.rotation),
+            EPSILON)))
+        return false;
+    if (glm::any(glm::epsilonNotEqual(locals_.scale, other.locals_.scale, EPSILON))) return false;
+    if (glm::any(glm::epsilonNotEqual(locals_.skew, other.locals_.skew, EPSILON))) return false;
+    return true;
+}
+
+void
+swap(Transform &first, Transform &second) noexcept {
+    using std::swap;
+    swap(first.parent_, second.parent_);
+    swap(first.parentIt_, second.parentIt_);
+    swap(first.children_, second.children_);
+    swap(first.locals_, second.locals_);
+    swap(first.cachedLocalToWorld_, second.cachedLocalToWorld_);
+    swap(first.cachedWorldToLocal_, second.cachedWorldToLocal_);
+    swap(first.cachedWorldProps_, second.cachedWorldProps_);
+    for (auto child : first.children_) {
+        child->parent_ = &first;
+        CHECK(std::find(first.children_.begin(), first.children_.end(), child) == child->parentIt_);
+    }
+    for (auto child : second.children_) {
+        child->parent_ = &second;
+        CHECK(
+            std::find(second.children_.begin(), second.children_.end(), child) == child->parentIt_);
+    }
+    if (first.parent_) {
+        *first.parentIt_ = &first;
+        CHECK(
+            std::find(first.parent_->children_.begin(), first.parent_->children_.end(), &first) ==
+            first.parentIt_);
+        CHECK(*first.parentIt_ == &first);
+    }
+    if (second.parent_) {
+        *second.parentIt_ = &second;
+        CHECK(
+            std::find(
+                second.parent_->children_.begin(),
+                second.parent_->children_.end(),
+                &second) == second.parentIt_);
+        CHECK(*second.parentIt_ == &second);
+    }
+}
+
+void
+Transform::invalidateCache() const {
+    cachedLocalToWorld_.reset();
+    cachedWorldToLocal_.reset();
+    cachedWorldProps_.reset();
     for (auto child : children_) {
-        // TODO: make this a method call that sets its transform relative to global
-        child->parent_ = nullptr;
+        // Don't need to invalidate children's cache if they've already been invalidated
+        if (child->cachedLocalToWorld_ || child->cachedWorldToLocal_ || child->cachedWorldProps_) {
+            child->invalidateCache();
+        }
     }
+}
+
+void
+Transform::addChild(Transform *child) {
+    children_.push_back(child);
+    child->parentIt_ = --children_.end();
+}
+
+Transform &
+Transform::setParent(Transform *parent, bool preserveLocalSpace) {
+    if (parent == parent_) return *this;
+    // Check if parent will create a cycle
+    for (auto curr = parent; curr; curr = curr->parent_) {
+        if (curr == this) {
+            throw std::invalid_argument("Setting transform's parent would create a cycle");
+        }
+    }
+    if (!preserveLocalSpace) {
+        // Get the current world transformation
+        auto mat = localToWorldMatrix();
+        if (parent) {
+            // Remove the new parent's transformation from the matrix;
+            mat = parent->worldToLocalMatrix() * mat;
+        }
+        locals_ = decompose(mat);
+    }
+    if (parent_) {
+        parent_->children_.erase(parentIt_);
+    }
+    parent_ = parent;
+    if (parent_) {
+        parent_->addChild(this);
+    }
+    invalidateCache();
+    return *this;
+}
+
+Transform &
+Transform::setPosition(glm::dvec3 position) {
+    auto props         = decompose(localToWorldMatrix());
+    props.translation  = position;
+    auto localToWorld  = recompose(props);
+    auto localToParent = localToWorld;
+    if (parent_) {
+        localToParent = parent_->worldToLocalMatrix() * localToParent;
+    }
+    locals_.translation = decompose(localToParent).translation;
+    invalidateCache();
+    cachedLocalToWorld_ = localToWorld;
+    cachedWorldProps_   = props;
+    return *this;
+}
+
+Transform &
+Transform::setLocalPosition(glm::dvec3 localPosition) {
+    if (localPosition == locals_.translation) {
+        return *this;
+    }
+    locals_.translation = localPosition;
+    invalidateCache();
+    return *this;
+}
+
+Transform &
+Transform::setRotation(glm::dquat rotation) {
+    auto props         = decompose(localToWorldMatrix());
+    props.rotation     = rotation;
+    auto localToWorld  = recompose(props);
+    auto localToParent = localToWorld;
+    if (parent_) {
+        localToParent = parent_->worldToLocalMatrix() * localToParent;
+    }
+    locals_.rotation = decompose(localToParent).rotation;
+    invalidateCache();
+    cachedLocalToWorld_ = localToWorld;
+    cachedWorldProps_   = props;
+    return *this;
+}
+
+Transform &
+Transform::setLocalRotation(glm::dquat localRotation) {
+    if (localRotation == locals_.rotation) {
+        return *this;
+    }
+    locals_.rotation = glm::normalize(localRotation);
+    invalidateCache();
+    return *this;
+}
+
+Transform &
+Transform::setScale(glm::dvec3 scale) {
+    auto props         = decompose(localToWorldMatrix());
+    props.scale        = scale;
+    auto localToWorld  = recompose(props);
+    auto localToParent = localToWorld;
+    if (parent_) {
+        localToParent = parent_->worldToLocalMatrix() * localToParent;
+    }
+    locals_.scale = decompose(localToParent).scale;
+    invalidateCache();
+    cachedLocalToWorld_ = localToWorld;
+    cachedWorldProps_   = props;
+    return *this;
+}
+
+Transform &
+Transform::setLocalScale(glm::dvec3 localScale) {
+    if (localScale == locals_.scale) {
+        return *this;
+    }
+    locals_.scale = localScale;
+    invalidateCache();
+    return *this;
+}
+
+Transform &
+Transform::setSkew(glm::dvec3 skew) {
+    auto props         = decompose(localToWorldMatrix());
+    props.skew         = skew;
+    auto localToWorld  = recompose(props);
+    auto localToParent = localToWorld;
+    if (parent_) {
+        localToParent = parent_->worldToLocalMatrix() * localToParent;
+    }
+    locals_.skew = decompose(localToParent).skew;
+    invalidateCache();
+    cachedLocalToWorld_ = localToWorld;
+    cachedWorldProps_   = props;
+    return *this;
+}
+
+Transform &
+Transform::setLocalSkew(glm::dvec3 localSkew) {
+    if (localSkew == locals_.skew) {
+        return *this;
+    }
+    locals_.skew = localSkew;
+    invalidateCache();
+    return *this;
 }
 
 Transform *
@@ -114,309 +409,482 @@ Transform::parent() const {
     return parent_;
 }
 
-Transform &
-Transform::setParent(Transform *parent) {
-    const glm::mat4 I(1.0f);
-    // Get the current world transformation
-    auto mat = localToWorldMatrix();
-    if (parent) {
-        // Remove the new parent's transformation from the matrix;
-        mat = parent->worldToLocalMatrix() * mat;
-    }
-    glm::vec3 position{};
-    glm::mat3 rotation{};
-    glm::vec3 scale{};
-    glm::vec3 skew{};
-    decompose(mat, position, rotation, scale, skew);
-    parent_        = parent;
-    localPosition_ = position;
-    localRotation_ = matToQuat(rotation);
-    localScale_    = scale;
-    localSkew_     = skew;
-    return *this;
-}
-
-glm::vec3
+glm::dvec3
 Transform::position() const {
-    // TODO: Transform into world space
-    return localPosition_;
-}
-
-Transform &
-Transform::setPosition(glm::vec3 position) {
-    if (parent_) {
-        auto vec = parent_->worldToLocalMatrix() * glm::vec4{position, 1};
-        position = vec / vec.w;
+    if (cachedWorldProps_) {
+        return cachedWorldProps_->translation;
     }
-    localPosition_ = position;
-    return *this;
+    auto props        = decompose(localToWorldMatrix());
+    cachedWorldProps_ = props;
+    return props.translation;
 }
 
-glm::vec3
+glm::dvec3
 Transform::localPosition() const {
-    return localPosition_;
+    return locals_.translation;
 }
 
-Transform &
-Transform::setLocalPosition(glm::vec3 localPosition) {
-    localPosition_ = localPosition;
-    return *this;
+glm::dquat
+Transform::rotation() const {
+    if (cachedWorldProps_) {
+        return cachedWorldProps_->rotation;
+    }
+    auto props        = decompose(localToWorldMatrix());
+    cachedWorldProps_ = props;
+    return props.rotation;
 }
 
-glm::quat
+glm::dquat
 Transform::localRotation() const {
-    return localRotation_;
+    return locals_.rotation;
 }
 
-Transform &
-Transform::setLocalRotation(glm::quat localRotation) {
-    localRotation_ = localRotation;
-    return *this;
+glm::dvec3
+Transform::scale() const {
+    if (cachedWorldProps_) {
+        return cachedWorldProps_->scale;
+    }
+    auto props        = decompose(localToWorldMatrix());
+    cachedWorldProps_ = props;
+    return props.scale;
 }
 
-glm::vec3
+glm::dvec3
 Transform::localScale() const {
-    return localScale_;
+    return locals_.scale;
 }
 
-Transform &
-Transform::setLocalScale(glm::vec3 localScale) {
-    localScale_ = localScale;
-    return *this;
+glm::dvec3
+Transform::skew() const {
+    if (cachedWorldProps_) {
+        return cachedWorldProps_->skew;
+    }
+    auto props        = decompose(localToWorldMatrix());
+    cachedWorldProps_ = props;
+    return props.skew;
 }
 
-[[nodiscard]] glm::vec3
+[[nodiscard]] glm::dvec3
 Transform::localSkew() const {
-    return localSkew_;
+    return locals_.skew;
 }
 
-Transform &
-Transform::setLocalSkew(glm::vec3 localSkew) {
-    localSkew_ = localSkew;
+glm::dvec3
+Transform::right() const {
+    return rotation() * glm::dvec3{1, 0, 0};
+}
+
+glm::dvec3
+Transform::up() const {
+    return rotation() * glm::dvec3{0, 1, 0};
+}
+
+glm::dvec3
+Transform::forward() const {
+    return rotation() * glm::dvec3{0, 0, -1};
+}
+
+glm::dmat4
+Transform::parentToLocalMatrix() const {
+    return recomposeInverse(locals_);
+}
+
+glm::dmat4
+Transform::localToParentMatrix() const {
+    return recompose(locals_);
+}
+
+glm::dmat4
+Transform::worldToLocalMatrix() const {
+    if (cachedWorldToLocal_) {
+        return cachedWorldToLocal_.value();
+    }
+    glm::dmat4 mat = parentToLocalMatrix();
+    if (parent_) {
+        mat = mat * parent_->worldToLocalMatrix();
+    }
+    cachedWorldToLocal_ = mat;
+    return mat;
+}
+glm::dmat4
+Transform::localToWorldMatrix() const {
+    if (cachedLocalToWorld_) {
+        return cachedLocalToWorld_.value();
+    }
+    glm::dmat4 mat = localToParentMatrix();
+    if (parent_) {
+        mat = parent_->localToWorldMatrix() * mat;
+    }
+    cachedLocalToWorld_ = mat;
+    return mat;
+}
+
+Transform::Builder &
+Transform::Builder::withParent(Transform &parent) {
+    parent_ = &parent;
     return *this;
 }
 
-glm::mat4
-Transform::parentToLocalMatrix() const {
-    const glm::mat4 I(1.0f);
-    glm::mat4       Sc = glm::scale(I, 1.0f / localScale_);
-    glm::mat4       Sk(1.0f);
-    Sk[1][0]    = -localSkew_.x;
-    Sk[2][0]    = localSkew_.x * localSkew_.z - localSkew_.y;
-    Sk[2][1]    = -localSkew_.z;
-    glm::mat4 R = glm::toMat4(localRotation_);
-    glm::mat4 T = glm::translate(I, -localPosition_);
-    return Sc * Sk * R * T;
+Transform::Builder &
+Transform::Builder::withPosition(glm::dvec3 position) {
+    position_ = position;
+    return *this;
 }
 
-glm::mat4
-Transform::localToParentMatrix() const {
-    glm::mat4 I(1.0f);
-    glm::mat4 T = glm::translate(I, localPosition_);
-    glm::mat4 R = glm::toMat4(glm::inverse(localRotation_));
-    glm::mat4 Sk(1.0f);
-    Sk[1][0]     = localSkew_.x;
-    Sk[2][0]     = localSkew_.y;
-    Sk[2][1]     = localSkew_.z;
-    glm::mat4 Sc = glm::scale(I, localScale_);
-    return T * R * Sk * Sc;
+Transform::Builder &
+Transform::Builder::withRotation(glm::dquat rotation) {
+    rotation_ = rotation;
+    return *this;
 }
 
-glm::mat4
-Transform::worldToLocalMatrix() const {
-    glm::mat4 mat  = parentToLocalMatrix();
-    auto      curr = this->parent_;
-    while (curr) {
-        mat  = mat * curr->parentToLocalMatrix();
-        curr = curr->parent_;
-    }
-    return mat;
-}
-glm::mat4
-Transform::localToWorldMatrix() const {
-    glm::mat4 mat  = localToParentMatrix();
-    auto      curr = this->parent_;
-    while (curr) {
-        mat  = curr->localToParentMatrix() * mat;
-        curr = curr->parent_;
-    }
-    return mat;
+Transform::Builder &
+Transform::Builder::withScale(glm::dvec3 scale) {
+    scale_ = scale;
+    return *this;
 }
 
-std::ostream &
-operator<<(std::ostream &os, const Transform &t) {
-    os << "{\n\t";
-    os << R"("position":)" << t.localPosition_ << "\",\n\t";
-    os << R"("rotation":)" << t.localRotation_ << "\",\n\t";
-    os << R"("scale":)" << t.localScale_ << "\",\n\t";
-    os << R"("skew":)" << t.localSkew_ << "\",\n";
-    os << "}";
-    return os;
+Transform::Builder &
+Transform::Builder::withSkew(glm::dvec3 skew) {
+    skew_ = skew;
+    return *this;
+}
+
+Transform
+Transform::Builder::build() const {
+    return Transform(parent_, Transform::Properties{position_, rotation_, scale_, skew_});
+}
+
+Transform::Builder::operator Transform() const {
+    return build();
 }
 
 TEST_SUITE_BEGIN("Transform");
+DOCTEST_CLANG_SUPPRESS_WARNING_WITH_PUSH("-Wunused-parameter")
 
-template<int N, typename T>
-void
-checkVecEquality(glm::vec<N, T, glm::defaultp> a, glm::vec<N, T, glm::defaultp> b) {
-    for (int i = 0; i < N; ++i) {
-        CHECK(a[i] == doctest::Approx(b[i]));
-    }
-}
-
-template<int N, typename T>
-void
-checkMatEquality(glm::mat<N, N, T, glm::defaultp> a, glm::mat<N, N, T, glm::defaultp> b) {
-    for (int i = 0; i < N; ++i) {
-        checkVecEquality(a[i], b[i]);
-    }
-}
-
-template<typename T>
-void
-checkQuatEquality(glm::qua<T, glm::defaultp> a, glm::qua<T, glm::defaultp> b) {
-    auto matA = glm::toMat4(a);
-    auto matB = glm::toMat4(b);
-    checkMatEquality(matA, matB);
-}
-
-#define VERIFY_TRANSFORM(transform)                                                 \
-    do {                                                                            \
-        const auto &t           = (transform);                                      \
-        glm::vec3   scale       = t.localScale();                                   \
-        glm::quat   rotation    = t.localRotation();                                \
-        glm::mat3   rotMat      = toMat3(rotation);                                 \
-        glm::vec3   translation = t.localPosition();                                \
-        glm::vec3   skew        = t.localSkew();                                    \
-        glm::mat4   mat         = t.localToParentMatrix();                          \
-        glm::vec3   expectScale{};                                                  \
-        glm::mat3   expectRotation{};                                               \
-        glm::vec3   expectTranslation{};                                            \
-        glm::vec3   expectSkew{};                                                   \
-        glm::vec4   expectPerspective{};                                            \
-        decompose(mat, expectTranslation, expectRotation, expectScale, expectSkew); \
-        SUBCASE("Scale") {                                                          \
-            checkVecEquality(scale, expectScale);                                   \
-        }                                                                           \
-        SUBCASE("Rotation") {                                                       \
-            checkMatEquality(rotMat, expectRotation);                               \
-            checkQuatEquality(rotation, matToQuat(expectRotation));                 \
-        }                                                                           \
-        SUBCASE("Translation") {                                                    \
-            checkVecEquality(translation, expectTranslation);                       \
-        }                                                                           \
-        SUBCASE("Skew") {                                                           \
-            checkVecEquality(skew, expectSkew);                                     \
-        }                                                                           \
-        SUBCASE("Inverse") {                                                        \
-            glm::mat4 inv = t.parentToLocalMatrix();                                \
-            checkMatEquality(inv, glm::inverse(mat));                               \
-        }                                                                           \
+#define CHECK_EPS_EQ(a, b)                          \
+    do {                                            \
+        CHECK(glm::epsilonEqual((a), (b), 0.0001)); \
     } while (0)
 
-TEST_CASE("foo") {
-    {
-        glm::mat4 M{
-            {1, 0, 0, 0},
-            {-0.406486958, -0.0448754206, 1.03280044, 0},
-            {-1.21086121, -0.970314204, 0.0477686599, 0},
-            {-0.222729996, -0.0297529995, -0.107712999, 1}};
-        glm::vec3 pos;
-        glm::mat3 rot;
-        glm::vec3 scl;
-        glm::vec3 skw;
-        decompose(M, pos, rot, scl, skw);
+#define CHECK_VEC3_EQ(a, b)           \
+    do {                              \
+        CHECK_EPS_EQ((a)[0], (b)[0]); \
+        CHECK_EPS_EQ((a)[1], (b)[1]); \
+        CHECK_EPS_EQ((a)[2], (b)[2]); \
+    } while (0)
+
+#define CHECK_VEC4_EQ(a, b)           \
+    do {                              \
+        CHECK_EPS_EQ((a)[0], (b)[0]); \
+        CHECK_EPS_EQ((a)[1], (b)[1]); \
+        CHECK_EPS_EQ((a)[2], (b)[2]); \
+        CHECK_EPS_EQ((a)[3], (b)[3]); \
+    } while (0)
+
+#define CHECK_MAT3_EQ(a, b)            \
+    do {                               \
+        CHECK_VEC3_EQ((a)[0], (b)[0]); \
+        CHECK_VEC3_EQ((a)[1], (b)[1]); \
+        CHECK_VEC3_EQ((a)[2], (b)[2]); \
+    } while (0)
+
+#define CHECK_MAT4_EQ(a, b)            \
+    do {                               \
+        CHECK_VEC4_EQ((a)[0], (b)[0]); \
+        CHECK_VEC4_EQ((a)[1], (b)[1]); \
+        CHECK_VEC4_EQ((a)[2], (b)[2]); \
+        CHECK_VEC4_EQ((a)[3], (b)[3]); \
+    } while (0)
+
+DOCTEST_MSVC_SUPPRESS_WARNING_WITH_PUSH(4505) // unreferenced local function has been removed
+DOCTEST_GCC_SUPPRESS_WARNING_WITH_PUSH("-Wunused-function")
+DOCTEST_CLANG_SUPPRESS_WARNING_WITH_PUSH("-Wunused-function")
+static Transform
+randomTransform(Transform *parent = nullptr) {
+    auto pos = glm::linearRand(glm::dvec3{-10, -10, -10}, glm::dvec3{10, 10, 10});
+    auto rot = glm::angleAxis(glm::linearRand(0.0, 2 * glm::pi<double>()), glm::sphericalRand(1.0));
+    auto scale = glm::linearRand(glm::dvec3(0.01), glm::dvec3(10.0));
+    auto skew  = glm::linearRand(glm::dvec3(-0.5), glm::dvec3(0.5));
+    auto builder =
+        Transform::Builder().withPosition(pos).withRotation(rot).withScale(scale).withSkew(skew);
+    if (parent) {
+        builder = builder.withParent(*parent);
     }
-
-    Transform t;
-    for (int i = 0; i < 1000; ++i) {
-        auto pos = glm::linearRand(glm::vec3{-10, -10, -10}, glm::vec3{10, 10, 10});
-        INFO("position: ", pos);
-        t.setLocalPosition(pos);
-
-        auto rot = glm::angleAxis(
-            glm::linearRand(0.0f, 2.0f * glm::pi<float>()),
-            glm::sphericalRand(1.0f));
-        auto rotMat = glm::toMat3(rot);
-        (void)rotMat;
-        INFO("rotation: ", rot);
-        t.setLocalRotation(rot);
-
-        auto scale = glm::linearRand(glm::vec3(0.0f), glm::vec3(2.0f));
-        INFO("scale: ", scale);
-        t.setLocalScale(scale);
-
-        auto skew = glm::linearRand(glm::vec3(-2.f), glm::vec3(2.f));
-        INFO("skew: ", skew);
-        t.setLocalSkew(skew);
-
-        glm::mat4 mat = t.localToWorldMatrix();
-        glm::vec3 newPos{};
-        glm::mat3 newRot{};
-        glm::vec3 newScl{};
-        glm::vec3 newSkw{};
-        decompose(mat, newPos, newRot, newScl, newSkw);
-        {
-            INFO("Scale expect: ", newScl);
-            checkVecEquality(scale, newScl);
-        }
-        {
-            INFO("Rotation expect: ", newRot);
-            checkMatEquality(rotMat, newRot);
-        }
-        {
-            INFO("Translation expect: ", newPos);
-            checkVecEquality(pos, newPos);
-        }
-        {
-            INFO("Skew expect: ", newSkw);
-            checkVecEquality(skew, newSkw);
-        }
-        {
-            glm::mat4 inv = t.parentToLocalMatrix();
-            INFO("Inverse expect: ", inv);
-            checkMatEquality(inv, glm::inverse(mat));
-        }
-    }
+    return builder.build();
 }
+DOCTEST_CLANG_SUPPRESS_WARNING_POP
+DOCTEST_GCC_SUPPRESS_WARNING_POP
+DOCTEST_MSVC_SUPPRESS_WARNING_POP
 
-TEST_CASE("MatrixDecomposition") {
-    Transform transform;
-    transform.setLocalPosition({-3.4f, 2.8, 10});
-    transform.setLocalRotation(glm::angleAxis(5.0f, glm::vec3{0, 1, 0}));
-    transform.setLocalScale({2, 1, 1});
-    transform.setLocalSkew({5, -3, 1});
-
-    VERIFY_TRANSFORM(transform);
+TEST_CASE("BuilderImplicitConversion") {
+    auto      builder = Transform::Builder().withPosition({1, 2, 3});
+    Transform t       = builder; // Implicit conversion
+    CHECK_VEC3_EQ(t.localPosition(), glm::dvec3(1, 2, 3));
 }
 
 TEST_CASE("ParentReassignment") {
-    Transform parent1, parent2;
-    //    parent1.setLocalRotation(glm::angleAxis(glm::radians(90.0f), glm::vec3{0, 1, 0}));
-    //    parent2.setLocalRotation(glm::angleAxis(glm::radians(90.0f), glm::vec3{1, 0, 0}));
-    parent1.setLocalPosition({-0.222730f, -0.029753f, -0.107713f})
-        .setLocalRotation({0.691589f, -0.722292f, 0.000000f, -0.000000f})
-        .setLocalScale({1.000000f, 1.033776f, 0.967327f})
-        .setLocalSkew({0.092879f, -1.251760f, -0.393206f});
-
-    auto      mat = parent1.localToWorldMatrix();
-    glm::vec3 scale{};
-    glm::quat rotation{};
-    glm::vec3 position{};
-    glm::vec3 skew{};
-    glm::vec4 perspective{};
-    glm::decompose(mat, scale, rotation, position, skew, perspective);
-
-    parent2.setLocalPosition({-1.000000f, 1.000000f, 0.000000f})
-        .setLocalScale({1.000000f, 0.500000f, 1.000000f})
-        .setLocalSkew({0.000000f, 0.000000f, 0.396004f});
-    Transform child(parent1);
-    //    child.setLocalPosition({-0.222730f, -0.029753f, -0.107713f})
-    //        .setLocalRotation({0.691589f, -0.722292f, 0.000000f, -0.000000f})
-    //        .setLocalScale({1.000000f, 1.033776f, 0.967327f})
-    //        .setLocalSkew({0.092879f, -1.251760f, -0.393206f});
-    auto oldMat = child.localToWorldMatrix();
-    child.setParent(&parent2);
-    auto newMat = child.localToWorldMatrix();
-    checkMatEquality(oldMat, newMat);
+    for (int i = 0; i < 1000; i++) {
+        auto parent1 = randomTransform();
+        auto parent2 = randomTransform();
+        auto child   = randomTransform(&parent1);
+        {
+            auto oldMat = child.localToWorldMatrix();
+            child.setParent(&parent2);
+            auto newMat = child.localToWorldMatrix();
+            CHECK_MAT4_EQ(oldMat, newMat);
+        }
+        {
+            auto child2     = randomTransform();
+            auto grandChild = randomTransform();
+            {
+                auto oldMat = grandChild.localToWorldMatrix();
+                grandChild.setParent(&child2);
+                auto newMat = grandChild.localToWorldMatrix();
+                CHECK_MAT4_EQ(oldMat, newMat);
+            }
+            {
+                auto oldMat = grandChild.localToWorldMatrix();
+                child.setParent(&parent2);
+                auto newMat = grandChild.localToWorldMatrix();
+                CHECK_MAT4_EQ(oldMat, newMat);
+            }
+        }
+    }
 }
+
+TEST_CASE("ParentCycle") {
+    Transform t1;
+    SUBCASE("OneLevel") {
+        CHECK_THROWS_AS(t1.setParent(&t1), std::invalid_argument);
+    }
+    Transform t2;
+    t2.setParent(&t1);
+    SUBCASE("TwoLevels") {
+        CHECK_THROWS_AS(t1.setParent(&t2), std::invalid_argument);
+    }
+    Transform t3;
+    t3.setParent(&t2);
+    SUBCASE("ThreeLevels") {
+        CHECK_THROWS_AS(t1.setParent(&t3), std::invalid_argument);
+    }
+}
+
+TEST_CASE("Copy") {
+    Transform parent;
+    Transform original = randomTransform(&parent);
+    Transform child    = randomTransform(&original);
+    auto      pos      = original.localPosition();
+    auto      rot      = original.localRotation();
+    auto      scl      = original.localScale();
+    auto      skw      = original.localSkew();
+    SUBCASE("Constructor") {
+        Transform copy = original;
+        CHECK(copy == original);
+        auto rotMat    = toMat3(rot);
+        auto newRotMat = toMat3(copy.localRotation());
+        CHECK(copy.parent() == &parent);
+        CHECK(child.parent() == &original);
+        CHECK_VEC3_EQ(pos, copy.localPosition());
+        CHECK_MAT3_EQ(rotMat, newRotMat);
+        CHECK_VEC3_EQ(scl, copy.localScale());
+        CHECK_VEC3_EQ(skw, copy.localSkew());
+    }
+    SUBCASE("Assignment") {
+        Transform copy;
+        copy = original;
+        CHECK(copy == original);
+        auto rotMat    = toMat3(rot);
+        auto newRotMat = toMat3(copy.localRotation());
+        CHECK(copy.parent() == &parent);
+        CHECK(child.parent() == &original);
+        CHECK_VEC3_EQ(pos, copy.localPosition());
+        CHECK_MAT3_EQ(rotMat, newRotMat);
+        CHECK_VEC3_EQ(scl, copy.localScale());
+        CHECK_VEC3_EQ(skw, copy.localSkew());
+    }
+    SUBCASE("SelfAssignment") {
+        original = original;
+        CHECK(original == original);
+        auto rotMat    = toMat3(rot);
+        auto newRotMat = toMat3(original.localRotation());
+        CHECK(original.parent() == &parent);
+        CHECK(child.parent() == &original);
+        CHECK_VEC3_EQ(pos, original.localPosition());
+        CHECK_MAT3_EQ(rotMat, newRotMat);
+        CHECK_VEC3_EQ(scl, original.localScale());
+        CHECK_VEC3_EQ(skw, original.localSkew());
+    }
+}
+
+TEST_CASE("Move") {
+    Transform parent;
+    Transform original = randomTransform(&parent);
+    Transform child    = randomTransform(&original);
+    auto      pos      = original.localPosition();
+    auto      rot      = original.localRotation();
+    auto      scl      = original.localScale();
+    auto      skw      = original.localSkew();
+    SUBCASE("Constructor") {
+        Transform copy      = std::move(original);
+        auto      rotMat    = toMat3(rot);
+        auto      newRotMat = toMat3(copy.localRotation());
+        CHECK(copy.parent() == &parent);
+        CHECK(child.parent() == &copy);
+        CHECK_VEC3_EQ(pos, copy.localPosition());
+        CHECK_MAT3_EQ(rotMat, newRotMat);
+        CHECK_VEC3_EQ(scl, copy.localScale());
+        CHECK_VEC3_EQ(skw, copy.localSkew());
+    }
+    SUBCASE("Assignment") {
+        Transform copy;
+        copy           = std::move(original);
+        auto rotMat    = toMat3(rot);
+        auto newRotMat = toMat3(copy.localRotation());
+        CHECK(copy.parent() == &parent);
+        CHECK(child.parent() == &copy);
+        CHECK_VEC3_EQ(pos, copy.localPosition());
+        CHECK_MAT3_EQ(rotMat, newRotMat);
+        CHECK_VEC3_EQ(scl, copy.localScale());
+        CHECK_VEC3_EQ(skw, copy.localSkew());
+    }
+    SUBCASE("SelfAssignment") {
+        original       = std::move(original);
+        auto rotMat    = toMat3(rot);
+        auto newRotMat = toMat3(original.localRotation());
+        CHECK(original.parent() == &parent);
+        CHECK(child.parent() == &original);
+        CHECK_VEC3_EQ(pos, original.localPosition());
+        CHECK_MAT3_EQ(rotMat, newRotMat);
+        CHECK_VEC3_EQ(scl, original.localScale());
+        CHECK_VEC3_EQ(skw, original.localSkew());
+    }
+}
+
+TEST_CASE("SetLocalProps") {
+    auto parent = randomTransform();
+    auto child  = randomTransform(&parent);
+
+    auto oldPos   = child.localPosition();
+    auto oldRot   = glm::toMat3(child.localRotation());
+    auto oldScale = child.localScale();
+    auto oldSkew  = child.localSkew();
+
+    SUBCASE("Position") {
+        auto pos = glm::linearRand(glm::dvec3{-10, -10, -10}, glm::dvec3{10, 10, 10});
+        child.setLocalPosition(pos);
+        auto newRot = glm::toMat3(child.localRotation());
+        CHECK_VEC3_EQ(child.localPosition(), pos);
+        CHECK_MAT3_EQ(newRot, oldRot);
+        CHECK_VEC3_EQ(child.localScale(), oldScale);
+        CHECK_VEC3_EQ(child.localSkew(), oldSkew);
+    }
+    SUBCASE("Rotation") {
+        auto rot =
+            glm::angleAxis(glm::linearRand(0.0, 2 * glm::pi<double>()), glm::sphericalRand(1.0));
+        child.setLocalRotation(rot);
+        oldRot      = glm::toMat3(rot);
+        auto newRot = glm::toMat3(child.localRotation());
+        CHECK_VEC3_EQ(child.localPosition(), oldPos);
+        CHECK_MAT3_EQ(newRot, oldRot);
+        CHECK_VEC3_EQ(child.localScale(), oldScale);
+        CHECK_VEC3_EQ(child.localSkew(), oldSkew);
+    }
+    SUBCASE("Scale") {
+        auto scale = glm::linearRand(glm::dvec3(0.01), glm::dvec3(10.0));
+        child.setLocalScale(scale);
+        auto newRot = glm::toMat3(child.localRotation());
+        CHECK_VEC3_EQ(child.localPosition(), oldPos);
+        CHECK_MAT3_EQ(newRot, oldRot);
+        CHECK_VEC3_EQ(child.localScale(), scale);
+        CHECK_VEC3_EQ(child.localSkew(), oldSkew);
+    }
+    SUBCASE("Skew") {
+        auto skew = glm::linearRand(glm::dvec3(-0.5), glm::dvec3(0.5));
+        child.setLocalSkew(skew);
+        auto newRot = glm::toMat3(child.localRotation());
+        CHECK_VEC3_EQ(child.localPosition(), oldPos);
+        CHECK_MAT3_EQ(newRot, oldRot);
+        CHECK_VEC3_EQ(child.localScale(), oldScale);
+        CHECK_VEC3_EQ(child.localSkew(), skew);
+    }
+}
+
+TEST_CASE("SetWorldProps") {
+    auto parent = randomTransform();
+    auto child  = randomTransform(&parent);
+
+    auto worldProps = decompose(child.localToWorldMatrix());
+    auto oldRot     = glm::toMat3(worldProps.rotation);
+    SUBCASE("Position") {
+        auto pos = glm::linearRand(glm::dvec3{-10, -10, -10}, glm::dvec3{10, 10, 10});
+        child.setPosition(pos);
+        auto newRot = glm::toMat3(child.rotation());
+        CHECK_VEC3_EQ(child.position(), pos);
+        CHECK_MAT3_EQ(oldRot, newRot);
+        CHECK_VEC3_EQ(child.scale(), worldProps.scale);
+        CHECK_VEC3_EQ(child.skew(), worldProps.skew);
+    }
+    SUBCASE("Rotation") {
+        auto rot =
+            glm::angleAxis(glm::linearRand(0.0, 2 * glm::pi<double>()), glm::sphericalRand(1.0));
+        child.setRotation(rot);
+        auto newRot = glm::toMat3(child.rotation());
+        CHECK_VEC3_EQ(child.position(), worldProps.translation);
+        CHECK_MAT3_EQ(glm::toMat3(rot), newRot);
+        CHECK_VEC3_EQ(child.scale(), worldProps.scale);
+        CHECK_VEC3_EQ(child.skew(), worldProps.skew);
+    }
+    SUBCASE("Scale") {
+        auto scale = glm::linearRand(glm::dvec3(0.01), glm::dvec3(10.0));
+        child.setScale(scale);
+        auto newRot = glm::toMat3(child.rotation());
+        CHECK_VEC3_EQ(child.position(), worldProps.translation);
+        CHECK_MAT3_EQ(oldRot, newRot);
+        CHECK_VEC3_EQ(child.scale(), scale);
+        CHECK_VEC3_EQ(child.skew(), worldProps.skew);
+    }
+    SUBCASE("Skew") {
+        auto skew = glm::linearRand(glm::dvec3(-0.5), glm::dvec3(0.5));
+        child.setSkew(skew);
+        auto newRot = glm::toMat3(child.rotation());
+        CHECK_VEC3_EQ(child.position(), worldProps.translation);
+        CHECK_MAT3_EQ(oldRot, newRot);
+        CHECK_VEC3_EQ(child.scale(), worldProps.scale);
+        CHECK_VEC3_EQ(child.skew(), skew);
+    }
+}
+
+TEST_CASE("Directions") {
+    auto parent = randomTransform();
+    auto child  = randomTransform(&parent);
+
+    auto right   = child.right();
+    auto up      = child.up();
+    auto forward = child.forward();
+
+    SUBCASE("Orthogonality") {
+        CHECK(glm::dot(right, up) == doctest::Approx(0));
+        CHECK(glm::dot(right, forward) == doctest::Approx(0));
+        CHECK(glm::dot(up, forward) == doctest::Approx(0));
+    }
+
+    SUBCASE("Transformations") {
+        auto rot = child.rotation();
+        CHECK_VEC3_EQ(glm::conjugate(rot) * forward, glm::dvec3(0, 0, -1));
+    }
+}
+
+TEST_CASE("DestructorRemovesChildren") {
+    auto child = randomTransform();
+    auto mat   = child.localToWorldMatrix();
+    {
+        auto parent = randomTransform();
+        child.setParent(&parent);
+        CHECK(child.parent() == &parent);
+        CHECK_MAT4_EQ(child.localToWorldMatrix(), mat);
+    }
+    CHECK(child.parent() == nullptr);
+    CHECK_MAT4_EQ(child.localToWorldMatrix(), mat);
+}
+
+DOCTEST_CLANG_SUPPRESS_WARNING_POP

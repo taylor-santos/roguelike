@@ -7,33 +7,34 @@
 
 namespace glm {
 template<int N, typename T>
-std::ostream &
+inline std::ostream &
 operator<<(std::ostream &os, const glm::vec<N, T> &vec) {
-    os << "{";
+    // os << "{";
     std::string sep;
     for (int i = 0; i < N; i++) {
-        os << std::fixed << sep << vec[i];
+        os << std::fixed << sep << vec[i] << "f";
         sep = ",";
     }
-    os << "}";
+    // os << "}";
     return os;
 }
 
-template<int N, typename T>
-std::ostream &
-operator<<(std::ostream &os, const glm::mat<N, N, T, glm::defaultp> &mat) {
-    std::string sep = "{";
+template<int N, typename T, glm::qualifier Q>
+inline std::ostream &
+operator<<(std::ostream &os, const glm::mat<N, N, T, Q> &mat) {
+    std::string sep = "{{";
     for (int row = 0; row < N; row++) {
         os << std::fixed << sep << mat[row];
-        sep = ",\n";
+        sep = "},{";
     }
-    os << "}";
+    os << "}}";
     return os;
 }
 
+template<typename T, glm::qualifier Q>
 std::ostream &
-operator<<(std::ostream &os, const glm::quat &q) {
-    os << std::fixed << q.w << "," << q.x << "," << q.y << "," << q.z;
+operator<<(std::ostream &os, const glm::qua<T, Q> &q) {
+    os << std::fixed << q.w << "f," << q.x << "f," << q.y << "f," << q.z << "f";
     return os;
 }
 } // namespace glm

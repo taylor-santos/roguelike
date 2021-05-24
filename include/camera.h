@@ -12,7 +12,10 @@
 #include "glm/gtc/constants.hpp"
 #include "transform.h"
 
-class Camera : public Transform {
+class Camera {
+public:
+    Transform transform;
+
 public:
     [[nodiscard]] std::pair<float, float>
     getSensitivity() const;
