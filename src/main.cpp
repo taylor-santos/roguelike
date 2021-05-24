@@ -10,6 +10,7 @@
 
 #include "glfw.h"
 #include "camera.h"
+#include "transform.h"
 
 // [Win32] Our example includes a copy of glfw3.lib pre-compiled with VS2010 to maximize ease of
 // testing and compatibility with old VS compilers. To link with VS2010-era libraries, VS2015+
@@ -25,6 +26,7 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/random.hpp>
 
 GLuint
 createShader(const char *src, GLenum shaderType) {
@@ -78,7 +80,7 @@ main(int, char **) {
     auto &window = GLFW::Window::get(1280, 720, "Roguelike");
 
     Camera camera;
-    camera.setPosition({0, 0, 2});
+    camera.transform.setPosition({0, 0, 2});
     bool cursorLocked = false;
 
     window.registerKeyCallback(GLFW::Key::ESCAPE, [&](int, int, GLFW::Action, int) {
@@ -101,24 +103,28 @@ main(int, char **) {
         switch (action) {
             case GLFW::Action::PRESS: velocity.y++; break;
             case GLFW::Action::RELEASE: velocity.y--; break;
+            case GLFW::Action::REPEAT: break;
         }
     });
     window.registerKeyCallback(GLFW::Key::S, [&](int, int, GLFW::Action action, int) {
         switch (action) {
             case GLFW::Action::PRESS: velocity.y--; break;
             case GLFW::Action::RELEASE: velocity.y++; break;
+            case GLFW::Action::REPEAT: break;
         }
     });
     window.registerKeyCallback(GLFW::Key::D, [&](int, int, GLFW::Action action, int) {
         switch (action) {
             case GLFW::Action::PRESS: velocity.x++; break;
             case GLFW::Action::RELEASE: velocity.x--; break;
+            case GLFW::Action::REPEAT: break;
         }
     });
     window.registerKeyCallback(GLFW::Key::A, [&](int, int, GLFW::Action action, int) {
         switch (action) {
             case GLFW::Action::PRESS: velocity.x--; break;
             case GLFW::Action::RELEASE: velocity.x++; break;
+            case GLFW::Action::REPEAT: break;
         }
     });
 
@@ -159,23 +165,27 @@ main(int, char **) {
 
     const char *VERTEX_SRC =
         "#version 330 core\n"
-        "layout(location=0) in vec2 position;" // Vertex position (x, y)
+        "layout(location=0) in vec3 position;" // Vertex position (x, y, z)
         "layout(location=1) in vec3 color;"    // Vertex color (r, g, b)
         "out vec3 fColor;"                     // Vertex shader has to pass color to fragment shader
         "uniform mat4 MVP;"
+        "uniform mat4 obj;"
         "void main()"
         "{"
-        "    fColor = color;"                             // Pass color to fragment shader
-        "    gl_Position = MVP*vec4(position, 0.0, 1.0);" // Place vertex at (x, y, 0, 1)
+        "    fColor = color;"                            // Pass color to fragment shader
+        "    gl_Position = MVP*obj*vec4(position, 1.0);" // Place vertex at (x, y, z, 1)
         "}";
 
     const char *FRAGMENT_SRC =
         "#version 330 core\n"
         "in vec3 fColor;"       // From the vertex shader
         "out vec4 outputColor;" // The color of the resulting fragment
+        "uniform bool red;"
         "void main()"
         "{"
-        "    outputColor = vec4(fColor, 1.0);" // Color it (r, g, b, 1.0) for fully opaque
+        "    outputColor = red ? vec4(1,fColor.y,fColor.z,1) : vec4(fColor, 1.0);" // Color it (r,
+                                                                                   // g, b, 1.0) for
+                                                                                   // fully opaque
         "}";
 
     GLuint vertex = createShader(VERTEX_SRC, GL_VERTEX_SHADER);
@@ -200,52 +210,152 @@ main(int, char **) {
 
     glUseProgram(program);
 
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-
-    GLuint vbo;
-    glGenBuffers(1, &vbo);
-
-    float vertices[] = {
+    const float vertices[] = {
         /* vertex0 */
-        -1.0f,
-        -1.0f,
-        0.0f,
+        -0.5f,
+        -0.5f,
+        -0.5f,
         /* color0 */
-        1.0f,
+        0.0f,
         0.0f,
         0.0f,
 
         /* vertex1 */
-        0.0f,
         0.5f,
-        0.0f,
+        -0.5f,
+        -0.5f,
         /* color1 */
-        0.0f,
         1.0f,
+        0.0f,
         0.0f,
 
         /* vertex2 */
-        1.0f,
-        -1.0f,
-        0.0f,
+        -0.5f,
+        0.5f,
+        -0.5f,
         /* color2 */
         0.0f,
+        1.0f,
         0.0f,
+
+        /* vertex3 */
+        0.5f,
+        0.5f,
+        -0.5f,
+        /* color3 */
+        1.0f,
+        1.0f,
+        0.0f,
+
+        /* vertex4 */
+        -0.5f,
+        -0.5f,
+        0.5f,
+        /* color4 */
+        0.0f,
+        0.0f,
+        1.0f,
+
+        /* vertex5 */
+        0.5f,
+        -0.5f,
+        0.5f,
+        /* color5 */
+        1.0f,
+        0.0f,
+        1.0f,
+
+        /* vertex6 */
+        -0.5f,
+        0.5f,
+        0.5f,
+        /* color6 */
+        0.0f,
+        1.0f,
+        1.0f,
+
+        /* vertex7 */
+        0.5f,
+        0.5f,
+        0.5f,
+        /* color7 */
+        1.0f,
+        1.0f,
         1.0f,
     };
 
+    const GLushort indices[]{
+        /* Triangle 0 */
+        0,
+        2,
+        1,
+        /* Triangle 1 */
+        1,
+        2,
+        3,
+        /* Triangle 2 */
+        0,
+        4,
+        2,
+        /* Triangle 3 */
+        2,
+        4,
+        6,
+        /* Triangle 4 */
+        4,
+        7,
+        6,
+        /* Triangle 5 */
+        4,
+        5,
+        7,
+        /* Triangle 6 */
+        1,
+        7,
+        5,
+        /* Triangle 7 */
+        1,
+        3,
+        7,
+        /* Triangle 8 */
+        7,
+        3,
+        2,
+        /* Triangle 9 */
+        7,
+        2,
+        6,
+        /* Triangle 10 */
+        1,
+        5,
+        0,
+        /* Triangle 11 */
+        5,
+        4,
+        0,
+    };
+
+    GLuint ibo;
+    glGenBuffers(1, &ibo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+
+    GLuint vbo;
+    glGenBuffers(1, &vbo);
+
     // Upload the vertices to the buffer
+    glBindVertexArray(vao);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     // Enable the vertex attributes and upload their data (see: layout(location=x))
     glEnableVertexAttribArray(0); // position
-    // 2 floats: x and y, but 5 floats in total per row
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), nullptr);
     glEnableVertexAttribArray(1); // color
-    // 3 floats: r, g and b, but 5 floats in total per row and start at the third one
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), nullptr);
     glVertexAttribPointer(
         1,
         3,
@@ -254,43 +364,55 @@ main(int, char **) {
         6 * sizeof(GLfloat),
         (void *)(3 * sizeof(GLfloat)));
 
-    // Our state
-    bool   show_demo_window    = true;
-    bool   show_another_window = false;
-    ImVec4 clear_color         = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-    double lastTime            = glfwGetTime();
+    glBindVertexArray(0);
 
+    glEnable(GL_DEPTH_TEST);
+
+    glFrontFace(GL_CCW);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+
+    // Our state
+    bool                   show_demo_window    = true;
+    bool                   show_another_window = false;
+    ImVec4                 clear_color         = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    double                 lastTime            = glfwGetTime();
+    double                 deltaTime           = 0;
+    std::vector<Transform> transforms;
+    transforms.emplace_back();
+    transforms.emplace_back(Transform::Builder().withParent(transforms[0]).withPosition({2, 0, 0}));
+    transforms.emplace_back(Transform::Builder().withParent(transforms[1]));
+    transforms.emplace_back(Transform::Builder().withParent(transforms[1]).withPosition({2, 0, 0}));
+    transforms.emplace_back(Transform::Builder().withParent(transforms[1]).withPosition({4, 0, 0}));
+
+    glfwSwapInterval(0);
     // Main loop
     while (!window.shouldClose()) {
-        auto deltaTime = glfwGetTime() - lastTime;
-        lastTime       = glfwGetTime();
+        deltaTime = glfwGetTime() - lastTime;
+        lastTime  = glfwGetTime();
 
-        auto pos     = camera.getPosition();
+        auto pos     = camera.transform.position();
         auto forward = camera.forward();
         auto right   = camera.right();
-        auto up      = camera.up();
         pos += static_cast<float>(deltaTime) * (velocity.x * right + velocity.y * forward);
-        camera.setPosition(pos);
-        std::cout << "[" << pos.x << ", " << pos.y << ", " << pos.z << "] ->" << std::endl;
-        std::cout << "\tx (" << right.x << ", " << right.y << ", " << right.z << ")" << std::endl;
-        std::cout << "\ty (" << up.x << ", " << up.y << ", " << up.z << ")" << std::endl;
-        std::cout << "\tz (" << forward.x << ", " << forward.y << ", " << forward.z << ")"
-                  << std::endl;
-        //        vertices[0]  = (float)sin(glfwGetTime());
-        //        vertices[6]  = (float)sin(glfwGetTime()) + 1;
-        //        vertices[12] = (float)sin(glfwGetTime());
-        //        vertices[5]  = (float)sin(glfwGetTime());
-        //        vertices[10] = (float)sin(glfwGetTime());
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+        camera.transform.setLocalPosition(pos);
+
+        transforms[0].setLocalRotation(glm::angleAxis(lastTime, glm::dvec3{0, 0, 1}));
+        transforms[0].setLocalSkew({glm::cos(lastTime), 0, 0});
+        transforms[1].setLocalRotation(glm::angleAxis(lastTime, glm::dvec3{0, 1, 0}));
+        transforms[1].setLocalScale({1, 1, 0.5});
+        transforms[2].setPosition({1, 1, 1});
+        transforms[3].setScale({1, 1, 1});
+        transforms[4].setSkew({0, 0, 0});
+
         // Poll and handle events (inputs, window resize, etc.)
-        // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui
-        // wants to use your inputs.
-        // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main
-        // application.
-        // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main
-        // application. Generally you may always pass all inputs to dear imgui, and hide them from
-        // your application based on those two flags.
+        // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if
+        // dear imgui wants to use your inputs.
+        // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your
+        // main application.
+        // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to
+        // your main application. Generally you may always pass all inputs to dear
+        // imgui, and hide them from your application based on those two flags.
 
         window.makeCurent();
         glfw.pollEvents();
@@ -314,7 +436,7 @@ main(int, char **) {
                 "Hello, world!"); // Create a window called "Hello, world!" and append into it.
 
             ImGui::Text("This is some useful text."); // Display some text (you can use a format
-                                                      // strings too)
+            // strings too)
             ImGui::Checkbox(
                 "Demo Window",
                 &show_demo_window); // Edit bools storing our window open/close state
@@ -330,7 +452,7 @@ main(int, char **) {
                 (float *)&clear_color); // Edit 3 floats representing a color
 
             if (ImGui::Button("Button")) // Buttons return true when clicked (most widgets return
-                                         // true when edited/activated)
+                // true when edited/activated)
                 counter++;
             ImGui::SameLine();
             ImGui::Text("counter = %d", counter);
@@ -347,26 +469,31 @@ main(int, char **) {
             ImGui::Begin(
                 "Another Window",
                 &show_another_window); // Pass a pointer to our bool variable (the window will have
-                                       // a closing button that will clear the bool when clicked)
+            // a closing button that will clear the bool when clicked)
             ImGui::Text("Hello from another window!");
-            if (ImGui::Button("Close Me")) show_another_window = false;
+            if (ImGui::Button("CloseMe")) show_another_window = false;
             ImGui::End();
         }
 
         // Rendering
+        glClear(GL_DEPTH_BUFFER_BIT);
         ImGui::Render();
         window.drawBackground(clear_color.x, clear_color.y, clear_color.z);
 
         auto [display_w, display_h] = window.getFrameBufferSize();
 
-        glm::mat4 mvp = camera.getMatrix((float)display_w / (float)display_h);
+        glm::mat4 mvp   = camera.getMatrix((float)display_w / (float)display_h);
+        GLint     mvpID = glGetUniformLocation(program, "MVP");
+        glUniformMatrix4fv(mvpID, 1, GL_FALSE, glm::value_ptr(mvp));
+        GLint objID = glGetUniformLocation(program, "obj");
+        for (auto &transform : transforms) {
+            glm::mat4 obj = transform.localToWorldMatrix();
+            glUniformMatrix4fv(objID, 1, GL_FALSE, glm::value_ptr(obj));
 
-        GLint matID = glGetUniformLocation(program, "MVP");
-
-        glUniformMatrix4fv(matID, 1, GL_FALSE, glm::value_ptr(mvp));
-
-        // The VAO is still bound so just draw the 3 vertices
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+            glBindVertexArray(vao);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+            glDrawElements(GL_TRIANGLES, sizeof(indices), GL_UNSIGNED_SHORT, nullptr);
+        }
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         window.updatePlatformWindows();

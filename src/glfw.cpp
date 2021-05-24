@@ -61,11 +61,14 @@ struct WindowAccessor {
     static void
     keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
         auto *handler = static_cast<Window *>(glfwGetWindowUserPointer(window));
-        if (handler->guiCtx_.wantCaptureKeyboard()) {
-            return;
-        }
-        auto callback = handler->keyCallbacks_[key];
-        if (callback) {
+        auto &[callback, pressWasCaptured] = handler->keyCallbacks_[key];
+        if (!callback) return;
+        if (!handler->guiCtx_.wantCaptureKeyboard()) {
+            if (action == GLFW_PRESS) pressWasCaptured = false;
+            callback(key, scancode, static_cast<Action>(action), mods);
+        } else if (action == GLFW_PRESS) {
+            pressWasCaptured = true;
+        } else if (!pressWasCaptured) {
             callback(key, scancode, static_cast<Action>(action), mods);
         }
     }
@@ -73,11 +76,14 @@ struct WindowAccessor {
     static void
     mouseCallback(GLFWwindow *window, int button, int action, int mods) {
         auto *handler = static_cast<Window *>(glfwGetWindowUserPointer(window));
-        if (handler->guiCtx_.wantCaptureMouse()) {
-            return;
-        }
-        auto callback = handler->mouseCallbacks_[button];
-        if (callback) {
+        auto &[callback, pressWasCaptured] = handler->mouseCallbacks_[button];
+        if (!callback) return;
+        if (!handler->guiCtx_.wantCaptureMouse()) {
+            if (action == GLFW_PRESS) pressWasCaptured = false;
+            callback(button, static_cast<Action>(action), mods);
+        } else if (action == GLFW_PRESS) {
+            pressWasCaptured = true;
+        } else if (!pressWasCaptured) {
             callback(button, static_cast<Action>(action), mods);
         }
     }
@@ -215,7 +221,7 @@ Window::registerKeyCallback(Key key, const KeyFun &callback) {
         ss << "error: key " << k << " is outside the valid range [0, " << GLFW_KEY_LAST << ")";
         throw std::invalid_argument(ss.str());
     }
-    return std::exchange(keyCallbacks_[k], callback);
+    return std::exchange(keyCallbacks_[k].first, callback);
 }
 
 MouseFun
@@ -227,7 +233,7 @@ Window::registerMouseCallback(Button button, const MouseFun &callback) {
            << ")";
         throw std::invalid_argument(ss.str());
     }
-    return std::exchange(mouseCallbacks_[b], callback);
+    return std::exchange(mouseCallbacks_[b].first, callback);
 }
 
 CursorFun
@@ -290,6 +296,7 @@ Manager::Manager() = default;
 Manager::~Manager() = default;
 
 TEST_SUITE_BEGIN("GLFW");
+DOCTEST_CLANG_SUPPRESS_WARNING_WITH_PUSH("-Wunused-variable")
 
 TEST_CASE("throwErrorShouldReturnIfNoError") {
     CHECK_NOTHROW(throwError());
@@ -483,5 +490,7 @@ TEST_CASE("WindowLockCursor") {
         }
     }
 }
+
+DOCTEST_CLANG_SUPPRESS_WARNING_POP
 
 } // namespace GLFW

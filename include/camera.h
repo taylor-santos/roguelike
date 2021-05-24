@@ -10,8 +10,12 @@
 #define GLM_FORCE_SILENT_WARNINGS // Suppress 'nonstandard extension used: nameless struct/union'
 #include "glm/glm.hpp"
 #include "glm/gtc/constants.hpp"
+#include "transform.h"
 
 class Camera {
+public:
+    Transform transform;
+
 public:
     [[nodiscard]] std::pair<float, float>
     getSensitivity() const;
@@ -28,12 +32,6 @@ public:
     void
     setFOV(float fov);
 
-    [[nodiscard]] glm::vec3
-    getPosition() const;
-
-    void
-    setPosition(const glm::vec3 &pos);
-
     void
     addRotation(float yaw, float pitch);
 
@@ -43,13 +41,13 @@ public:
     void
     setRotation(float yaw, float pitch);
 
-    float
+    [[nodiscard]] float
     getNear() const;
 
     void
     setNear(float near);
 
-    float
+    [[nodiscard]] float
     getFar() const;
 
     void
@@ -74,7 +72,6 @@ private:
     float                   fov_{glm::half_pi<float>()};
     float                   near_{0.01f};
     float                   far_{1000.0f};
-    glm::vec3               pos_{0, 0, 0};
 
 public:
 private:

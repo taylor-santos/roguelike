@@ -228,13 +228,14 @@ public:
     unlockCursor() const;
 
 private:
-    Initializer &                                            init_ = Initializer::get();
-    GLFWwindow *                                             window_;
-    GUI::Context                                             guiCtx_;
-    std::pair<double, double>                                prevCursorPos_{};
-    std::array<KeyFun, static_cast<size_t>(Key::COUNT)>      keyCallbacks_{};
-    std::array<MouseFun, static_cast<size_t>(Button::COUNT)> mouseCallbacks_{};
-    CursorFun                                                cursorCallback_{};
+    Initializer &init_ = Initializer::get();
+
+    GLFWwindow *                                                              window_;
+    GUI::Context                                                              guiCtx_;
+    std::pair<double, double>                                                 prevCursorPos_{};
+    std::array<std::pair<KeyFun, bool>, static_cast<size_t>(Key::COUNT)>      keyCallbacks_{};
+    std::array<std::pair<MouseFun, bool>, static_cast<size_t>(Button::COUNT)> mouseCallbacks_{};
+    CursorFun                                                                 cursorCallback_{};
 
 private:
     Window(int width, int height, const char *title);
