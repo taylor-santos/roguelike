@@ -28,23 +28,22 @@
 ### Prerequisites
 
 * CMake >= 3.16
-* glad >= 0.1.34 (included as submodule)
-* glfw3 >= 3.3 (included as submodule)
+* glad >= 0.1.34 (included in `external/` directory)
+* glfw3 >= 3.3.4 (retrieved by CMake FetchContent)
     * Linux dependencies: ([more info](https://www.glfw.org/docs/latest/compile.html#compile_deps_x11))
         * X11: `xorg-dev`
         * Wayland: `libwayland-dev`
         * OSMesa: `libosmesa6-dev`
-* glm >= 0.9.9.8 (included as submodule)
-* ImGui >= 1.82 (included as submodule)
-* doctest >= 2.4.6 (included as submodule)
+* glm >= 0.9.9.8 (retrieved by CMake FetchContent)
+* ImGui >= 1.83 (retrieved by CMake FetchContent)
+* doctest >= 2.4.6 (retrieved by CMake FetchContent)
 
 ### Installation
 
 1. Clone the repo
 
-   Make sure to include the `--recurse-submodules` flag to clone the required submodules.
     ```sh
-    git clone --recurse-submodules https://github.com/taylor-santos/roguelike
+    git clone https://github.com/taylor-santos/roguelike
     ```
 
 1. Run CMake
