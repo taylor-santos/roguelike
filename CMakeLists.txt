@@ -7,5 +7,5 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_subdirectory(external)
 
-include_directories(include external/imgui external/imgui/backends external/doctest)
+include_directories(include)
 add_subdirectory(src)
