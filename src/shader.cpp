@@ -158,7 +158,7 @@ TEST_CASE("ShaderProgram") {
     GLFW::Window::get(500, 500, "window");
     auto builder = ShaderProgram::Builder();
     SUBCASE("WithShader") {
-        std::string src = "#version 330 core\n"
+        std::string src = "#version 140\n"
                           "out vec4 outputColor;"
                           "uniform vec3 aUniform;"
                           "void main() {"
@@ -187,7 +187,7 @@ TEST_CASE("ShaderProgram") {
         }
     }
     SUBCASE("UnresolvedFunction") {
-        std::string src = "#version 330 core\n"
+        std::string src = "#version 140\n"
                           "void foo();"
                           "void main() {"
                           "  foo();"
