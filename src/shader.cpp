@@ -196,3 +196,14 @@ TEST_CASE("ShaderProgram") {
         CHECK_THROWS((void)builder.build());
     }
 }
+
+TEST_CASE("glErrorString") {
+    glErrorString(GL_NO_ERROR);
+    glErrorString(GL_INVALID_ENUM);
+    glErrorString(GL_INVALID_VALUE);
+    glErrorString(GL_INVALID_OPERATION);
+    glErrorString(GL_INVALID_FRAMEBUFFER_OPERATION);
+    glErrorString(GL_OUT_OF_MEMORY);
+    glErrorString(GL_STACK_UNDERFLOW);
+    glErrorString(GL_STACK_OVERFLOW);
+}
