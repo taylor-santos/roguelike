@@ -24,55 +24,10 @@
 #include <glad/glad.h>
 // Include glfw3.h after our OpenGL definitions
 #include <GLFW/glfw3.h>
-#include <iostream>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/random.hpp>
 
-GLuint
-createShader(const char *src, GLenum shaderType) {
-    // Create a shader and load the string as source code and compile it
-    GLuint s = glCreateShader(shaderType);
-    glShaderSource(s, 1, (const GLchar **)&src, NULL);
-    glCompileShader(s);
-
-    // Check compilation status: this will report syntax errors
-    GLint status;
-    glGetShaderiv(s, GL_COMPILE_STATUS, &status);
-    if (!status) {
-        std::cerr << "Compiling of shader failed: ";
-        char log[512];
-        glGetShaderInfoLog(s, 512, NULL, log);
-        std::cerr << log << std::endl;
-        return 0;
-    }
-
-    return s;
-}
-
-GLuint
-createShaderProgram(GLuint vertex, GLuint fragment) {
-    // Create a shader program and attach the vertex and fragment shaders
-    GLuint program = glCreateProgram();
-    glAttachShader(program, vertex);
-    glAttachShader(program, fragment);
-    return program;
-}
-
-bool
-linkShader(GLuint program) {
-    // Link the program and check the status: this will report semantics errors
-    glLinkProgram(program);
-    int status;
-    glGetProgramiv(program, GL_LINK_STATUS, &status);
-    if (!status) {
-        std::cerr << "Linking of shader failed: ";
-        char log[512];
-        glGetProgramInfoLog(program, 512, NULL, log);
-        std::cerr << log << std::endl;
-        return false;
-    }
-    return true;
-}
+#include "shader.h"
 
 int
 main(int, char **) {
@@ -187,28 +142,12 @@ main(int, char **) {
                                                                                    // g, b, 1.0) for
                                                                                    // fully opaque
         "}";
+    auto program = ShaderProgram::Builder()
+                       .withShader(Shader(FRAGMENT_SRC, Shader::Type::FRAGMENT))
+                       .withShader(Shader(VERTEX_SRC, Shader::Type::VERTEX))
+                       .build();
 
-    GLuint vertex = createShader(VERTEX_SRC, GL_VERTEX_SHADER);
-    if (!vertex) {
-        return -1;
-    }
-    GLuint fragment = createShader(FRAGMENT_SRC, GL_FRAGMENT_SHADER);
-    if (!fragment) {
-        return -1;
-    }
-    GLuint program = createShaderProgram(vertex, fragment);
-    if (!program) {
-        return -1;
-    }
-    if (!linkShader(program)) {
-        return -1;
-    }
-    glDetachShader(program, vertex);
-    glDeleteShader(vertex);
-    glDetachShader(program, fragment);
-    glDeleteShader(fragment);
-
-    glUseProgram(program);
+    program.use();
 
     const float vertices[] = {
         /* vertex0 */
@@ -483,9 +422,9 @@ main(int, char **) {
         auto [display_w, display_h] = window.getFrameBufferSize();
 
         glm::mat4 mvp   = camera.getMatrix((float)display_w / (float)display_h);
-        GLint     mvpID = glGetUniformLocation(program, "MVP");
+        GLint     mvpID = program.getUniformLocation("MVP");
         glUniformMatrix4fv(mvpID, 1, GL_FALSE, glm::value_ptr(mvp));
-        GLint objID = glGetUniformLocation(program, "obj");
+        GLint objID = program.getUniformLocation("obj");
         for (auto &transform : transforms) {
             glm::mat4 obj = transform.localToWorldMatrix();
             glUniformMatrix4fv(objID, 1, GL_FALSE, glm::value_ptr(obj));

@@ -559,7 +559,9 @@ Transform::Builder::operator Transform() const {
 }
 
 TEST_SUITE_BEGIN("Transform");
-DOCTEST_CLANG_SUPPRESS_WARNING_WITH_PUSH("-Wunused-parameter")
+DOCTEST_CLANG_SUPPRESS_WARNING_PUSH
+DOCTEST_CLANG_SUPPRESS_WARNING("-Wunused-parameter")
+DOCTEST_CLANG_SUPPRESS_WARNING("-Wunused-variable")
 
 #define CHECK_EPS_EQ(a, b)                          \
     do {                                            \
@@ -669,6 +671,7 @@ TEST_CASE("ParentCycle") {
     }
 }
 
+DOCTEST_CLANG_SUPPRESS_WARNING_WITH_PUSH("-Wself-assign-overloaded")
 TEST_CASE("Copy") {
     Transform parent;
     Transform original = randomTransform(&parent);
@@ -715,7 +718,9 @@ TEST_CASE("Copy") {
         CHECK_VEC3_EQ(skw, original.localSkew());
     }
 }
+DOCTEST_CLANG_SUPPRESS_WARNING_POP
 
+DOCTEST_CLANG_SUPPRESS_WARNING_WITH_PUSH("-Wself-move")
 TEST_CASE("Move") {
     Transform parent;
     Transform original = randomTransform(&parent);
@@ -759,6 +764,7 @@ TEST_CASE("Move") {
         CHECK_VEC3_EQ(skw, original.localSkew());
     }
 }
+DOCTEST_CLANG_SUPPRESS_WARNING_POP
 
 TEST_CASE("SetLocalProps") {
     auto parent = randomTransform();
