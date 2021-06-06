@@ -5,7 +5,8 @@ set(BUILD_SRC
         glfw.cpp
         gui.cpp
         transform.cpp
-        camera.cpp)
+        camera.cpp
+        shader.cpp)
 
 set(TEST_NAME ${PROJECT_NAME}_tests)
 
