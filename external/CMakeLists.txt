@@ -44,6 +44,18 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(doctest)
 
 #------------------------------------------------------------------------------------
+# Fetch assimp
+#------------------------------------------------------------------------------------
+
+message(STATUS "Fetching assimp...")
+FetchContent_Declare(
+        assimp
+        GIT_REPOSITORY https://github.com/assimp/assimp
+        GIT_TAG 8f0c6b04b2257a520aaab38421b2e090204b69df # 5.0.1
+)
+FetchContent_MakeAvailable(assimp)
+
+#------------------------------------------------------------------------------------
 # Fetch imgui
 #------------------------------------------------------------------------------------
 

@@ -385,7 +385,7 @@ main(int, char **) {
     transforms.emplace_back(Transform::Builder().withParent(transforms[1]).withPosition({2, 0, 0}));
     transforms.emplace_back(Transform::Builder().withParent(transforms[1]).withPosition({4, 0, 0}));
 
-    glfwSwapInterval(0);
+    glfwSwapInterval(1);
     // Main loop
     while (!window.shouldClose()) {
         deltaTime = glfwGetTime() - lastTime;

@@ -20,12 +20,14 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
 target_link_libraries(${PROJECT_NAME}
         lib_imgui
         glm
-        doctest)
+        doctest
+        assimp)
 
 target_link_libraries(${TEST_NAME}
         lib_imgui
         glm
-        doctest)
+        doctest
+        assimp)
 
 if (MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4 /WX)
