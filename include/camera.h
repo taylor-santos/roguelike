@@ -7,9 +7,19 @@
 
 #include <utility>
 
+#if defined(__clang__)
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Wdeprecated-volatile"
+#endif
+
 #define GLM_FORCE_SILENT_WARNINGS // Suppress 'nonstandard extension used: nameless struct/union'
 #include "glm/glm.hpp"
 #include "glm/gtc/constants.hpp"
+
+#if defined(__clang__)
+#    pragma clang diagnostic pop
+#endif
+
 #include "transform.h"
 
 class Camera {
