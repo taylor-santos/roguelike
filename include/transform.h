@@ -9,10 +9,19 @@
 #include <ostream>
 #include <optional>
 
+#if defined(__clang__)
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Wdeprecated-volatile"
+#endif
+
 #define GLM_FORCE_SILENT_WARNINGS // Suppress 'nonstandard extension used: nameless struct/union'
 #include "glm/glm.hpp"
 #include "glm/gtc/quaternion.hpp"
 #include "glm/gtx/quaternion.hpp"
+
+#if defined(__clang__)
+#    pragma clang diagnostic pop
+#endif
 
 class Transform {
 public:
@@ -223,7 +232,7 @@ public:
     localToWorldMatrix() const;
 
 private:
-    Transform *                       parent_{nullptr};
+    Transform                        *parent_{nullptr};
     std::list<Transform *>::iterator  parentIt_{};
     std::list<Transform *>            children_{};
     Properties                        locals_;

@@ -1,5 +1,3 @@
-[![Build Status](https://travis-ci.com/taylor-santos/roguelike.svg?branch=trunk)](https://travis-ci.com/taylor-santos/roguelike)
-[![Coverage Status](https://coveralls.io/repos/github/taylor-santos/roguelike/badge.svg?branch=trunk&kill_cache=1)](https://coveralls.io/github/taylor-santos/roguelike?branch=trunk)
 [![codecov](https://codecov.io/gh/taylor-santos/roguelike/branch/trunk/graph/badge.svg?token=EQ4YRC3D76)](https://codecov.io/gh/taylor-santos/roguelike)
 
 <h3 align="center">Unnamed Roguelike</h3>

@@ -230,7 +230,7 @@ public:
 private:
     Initializer &init_ = Initializer::get();
 
-    GLFWwindow *                                                              window_;
+    GLFWwindow                                                               *window_;
     GUI::Context                                                              guiCtx_;
     std::pair<double, double>                                                 prevCursorPos_{};
     std::array<std::pair<KeyFun, bool>, static_cast<size_t>(Key::COUNT)>      keyCallbacks_{};

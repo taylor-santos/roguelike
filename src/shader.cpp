@@ -164,7 +164,7 @@ TEST_CASE("ShaderProgram") {
                           "void main() {"
                           "  outputColor = vec4(aUniform, 1);"
                           "}";
-        Shader shader(src, Shader::Type::FRAGMENT);
+        Shader      shader(src, Shader::Type::FRAGMENT);
         builder.withShader(shader);
         SUBCASE("Build") {
             CHECK_NOTHROW((void)builder.build());
