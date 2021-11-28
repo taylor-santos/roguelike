@@ -223,7 +223,7 @@ public:
     localToWorldMatrix() const;
 
 private:
-    Transform *                       parent_{nullptr};
+    Transform                        *parent_{nullptr};
     std::list<Transform *>::iterator  parentIt_{};
     std::list<Transform *>            children_{};
     Properties                        locals_;

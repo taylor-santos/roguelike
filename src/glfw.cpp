@@ -100,6 +100,7 @@ struct WindowAccessor {
 
 static GLFWwindow *
 createWindow(int width, int height, const char *title) {
+    GLFW::Initializer::get();
     // Decide GL+GLSL versions
 #if defined(IMGUI_IMPL_OPENGL_ES2)
     // GL ES 2.0 + GLSL 100
