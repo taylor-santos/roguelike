@@ -8,20 +8,53 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        config:
+          - {
+            name: "Linux GCC",
+            platform: ubuntu-latest,
+            compiler: g++
+          }
+          - {
+            name: "Linux Clang",
+            platform: ubuntu-latest,
+            compiler: clang++
+          }
+          - {
+            name: "MacOS Clang",
+            platform: macos-latest,
+            compiler: clang++
+          }
+          - {
+            name: "Windows MSVC",
+            platform: windows-latest,
+            compiler: cl
+          }
+          - {
+            name: "Windows MinGW",
+            platform: windows-latest,
+            compiler: g++
+          }
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.platform }}
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install Dependencies
+      - name: Install Dependencies (Linux)
+        if: matrix.config.platform == 'ubuntu-latest'
         run: sudo apt-get install -y libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev xorg-dev
 
       - name: Configure CMake
+        env:
+          CXX: ${{ matrix.config.compiler }}
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
       - name: Build
         run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
       - name: Test
+        if: matrix.config.platform == 'ubuntu-latest'
         uses: GabrielBB/xvfb-action@v1
         with:
           working-directory: ${{github.workspace}}/build/src
