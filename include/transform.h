@@ -11,6 +11,7 @@
 
 #if defined(__clang__)
 #    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Wunknown-warning-option"
 #    pragma clang diagnostic ignored "-Wdeprecated-volatile"
 #elif defined(__GNUC__) || defined(__GNUG__)
 #    pragma GCC diagnostic push
