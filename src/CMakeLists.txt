@@ -38,9 +38,9 @@ set_target_properties(${PROJECT_NAME} ${TEST_NAME}
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # using Clang
     target_compile_options(${PROJECT_NAME} PRIVATE
-            -Wall -Wextra -pedantic -Werror -ftime-trace)
+            -Wall -Wextra -pedantic -Werror)
     target_compile_options(${TEST_NAME} PRIVATE
-            -Wall -Wextra -pedantic -Werror -ftime-trace)
+            -Wall -Wextra -pedantic -Werror)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     # using GCC
     target_compile_options(${PROJECT_NAME} PRIVATE
