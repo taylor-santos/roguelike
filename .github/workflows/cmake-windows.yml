@@ -10,21 +10,20 @@ jobs:
   build:
     strategy:
       matrix:
-        platform:
-          - name: windows-2019
-          - name: windows-2022
-        compiler:
-          - name: cl
-          - name: g++
-    name: ${{ matrix.platform.name }} - ${{ matrix.compiler.name }}
-    runs-on: ${{ matrix.platform.name }}
+        platform: [ windows-2019,
+                    windows-2022 ]
+        architecture: [ Win32, x64 ]
+
+    name: ${{ matrix.platform }} - ${{ matrix.architecture }}
+    runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v2
 
+      - name: List Generators
+        run: cmake --help
+
       - name: Configure CMake
-        env:
-          CXX: ${{ matrix.compiler.name }}
-        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+        run: cmake -A ${{ matrix.architecture }} -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }}
