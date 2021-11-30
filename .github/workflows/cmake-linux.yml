@@ -13,9 +13,11 @@ jobs:
         platform: [ ubuntu-18.04, ubuntu-20.04 ]
         compiler:
           - name: g++-8
+            deps: g++-8
           - name: g++-9
           - name: g++-10
           - name: g++-11
+            deps: g++-11
           - name: clang++-9
             deps: clang-9
           - name: clang++-10

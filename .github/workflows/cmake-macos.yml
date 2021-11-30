@@ -26,13 +26,7 @@ jobs:
       - name: Configure CMake
         run: |
           export CXX=${{ matrix.compiler.bin }}
-          cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_EXE_LINKER_FLAGS="-lc++"
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }}
-
-      - name: Test
-        uses: GabrielBB/xvfb-action@v1
-        with:
-          working-directory: ${{ github.workspace }}/build/src
-          run: ctest -C ${{ env.BUILD_TYPE }} --rerun-failed --output-on-failure
