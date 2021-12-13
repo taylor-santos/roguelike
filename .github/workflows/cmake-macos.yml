@@ -1,0 +1,32 @@
+name: CMake MacOS
+
+on: [ push, pull_request ]
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        platform:
+          - name: macos-10.15
+          - name: macos-latest
+        compiler:
+          - name: clang++-12
+            bin: "clang"
+          - name: clang++-13
+            bin: "$(brew --prefix llvm)/bin/clang"
+    name: ${{ matrix.platform.name }} - ${{ matrix.compiler.name }}
+    runs-on: ${{ matrix.platform.name }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Configure CMake
+        run: |
+          export CXX=${{ matrix.compiler.bin }}
+          cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_EXE_LINKER_FLAGS="-lc++"
+
+      - name: Build
+        run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }}

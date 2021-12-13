@@ -13,7 +13,7 @@ set(GLFW_BUILD_DOCS OFF)
 FetchContent_Declare(
         glfw
         GIT_REPOSITORY https://github.com/glfw/glfw
-        GIT_TAG 814b7929c5add4b0541ccad26fb81f28b71dc4d8 # 3.3.4
+        GIT_TAG d3b73abba0cab8cbb2a638151477f54d8502a07e # 3.3.5
 )
 FetchContent_MakeAvailable(glfw)
 
@@ -51,7 +51,7 @@ message(STATUS "Fetching imgui...")
 FetchContent_Declare(
         imgui
         GIT_REPOSITORY https://github.com/ocornut/imgui
-        GIT_TAG 1b435ae3e07ca813eb3ef40aaabe7053f5570fae # 1.83-docking
+        GIT_TAG dc8c3618e8f8e2dada23daa1aa237626af341fd8 # docking/1.85
 )
 FetchContent_GetProperties(imgui)
 if (NOT imgui_POPULATED)
@@ -69,4 +69,7 @@ if (NOT imgui_POPULATED)
             glad
             glfw)
     target_include_directories(lib_imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        target_compile_options(lib_imgui PRIVATE -Wno-deprecated-enum-enum-conversion)
+    endif ()
 endif ()

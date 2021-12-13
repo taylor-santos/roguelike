@@ -1,0 +1,61 @@
+name: CMake Linux
+
+on: [ push, pull_request ]
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        platform: [ ubuntu-18.04, ubuntu-20.04 ]
+        compiler:
+          - name: g++-8
+            deps: g++-8
+          - name: g++-9
+          - name: g++-10
+          - name: g++-11
+            deps: g++-11
+          - name: clang++-9
+            deps: clang-9
+          - name: clang++-10
+            deps: clang-10
+          - name: clang++-11
+            deps: clang-11
+          - name: clang++-12
+            deps: clang-12
+        exclude:
+          - platform: ubuntu-18.04
+            compiler:
+              name: clang++-11
+              deps: clang-11
+          - platform: ubuntu-18.04
+            compiler:
+              name: clang++-12
+              deps: clang-12
+    name: ${{ matrix.platform }} - ${{ matrix.compiler.name }}
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get install -y libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev xorg-dev libgl1-mesa-dev ${{ matrix.compiler.deps }}
+
+      - name: Configure CMake
+        env:
+          CXX: ${{ matrix.compiler.name }}
+        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+
+      - name: Build
+        run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }}
+
+      - name: Test
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          working-directory: ${{ github.workspace }}/build/src
+          run: ctest -C ${{ env.BUILD_TYPE }} --rerun-failed --output-on-failure
