@@ -29,10 +29,49 @@
 
 #include "shader.h"
 
+#include <iostream>
+
+#include "plugin.h"
+
+static void
+call_plugin_func(const std::string &name, void (*func)(void *), void *data) {
+    if (func) {
+        try {
+            func(data);
+        } catch (const std::exception &e) {
+            std::cerr << "[" << typeid(e).name() << "] thrown in plugin \"" << name
+                      << "\": " << e.what() << std::endl;
+        } catch (...) {
+            std::cerr << "Unknown exception thrown in pluging \"" << name << "\"" << std::endl;
+        }
+    }
+}
+
 int
-main(int, char **) {
+main(int argc, char **argv) {
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <plugin directory> [plugin names...]" << std::endl;
+        exit(EXIT_FAILURE);
+    }
     auto &glfw   = GLFW::Manager::get();
     auto &window = GLFW::Window::get(1280, 720, "Roguelike");
+
+    std::vector<std::pair<Plugin, Plugin::FuncType>> plugins;
+    plugins.reserve(argc - 1);
+    for (int i = 2; i < argc; i++) {
+        try {
+            auto plugin = Plugin(argv[i], argv[1]);
+
+            auto start  = plugin.get_function("start");
+            auto update = plugin.get_function("update");
+
+            call_plugin_func(argv[1], start, nullptr);
+
+            plugins.emplace_back(std::pair{std::move(plugin), update});
+        } catch (const std::exception &e) {
+            std::cerr << "Error loading plugin \"" << argv[i] << "\": " << e.what() << std::endl;
+        }
+    }
 
     Camera camera;
     camera.transform.setPosition({0, 0, 2});
@@ -53,7 +92,7 @@ main(int, char **) {
             window.setCursorPos(0, 0);
         }
     });
-    glm::vec2 velocity{0, 0};
+    glm::vec3 velocity{0, 0, 0};
     window.registerKeyCallback(GLFW::Key::W, [&](int, int, GLFW::Action action, int) {
         switch (action) {
             case GLFW::Action::PRESS: velocity.y++; break;
@@ -79,6 +118,13 @@ main(int, char **) {
         switch (action) {
             case GLFW::Action::PRESS: velocity.x--; break;
             case GLFW::Action::RELEASE: velocity.x++; break;
+            case GLFW::Action::REPEAT: break;
+        }
+    });
+    window.registerKeyCallback(GLFW::Key::SPACE, [&](int, int, GLFW::Action action, int) {
+        switch (action) {
+            case GLFW::Action::PRESS: velocity.z--; break;
+            case GLFW::Action::RELEASE: velocity.z++; break;
             case GLFW::Action::REPEAT: break;
         }
     });
@@ -324,9 +370,19 @@ main(int, char **) {
     transforms.emplace_back(Transform::Builder().withParent(transforms[1]).withPosition({2, 0, 0}));
     transforms.emplace_back(Transform::Builder().withParent(transforms[1]).withPosition({4, 0, 0}));
 
-    glfwSwapInterval(0);
+    glfwSwapInterval(1);
     // Main loop
     while (!window.shouldClose()) {
+        for (auto &[plugin, update] : plugins) {
+            if (plugin.check_for_updates()) {
+                std::cout << "loading new functions from updated library" << std::endl;
+                update     = plugin.get_function("update");
+                auto start = plugin.get_function("start");
+                call_plugin_func(plugin.get_name(), start, nullptr);
+            }
+            call_plugin_func(plugin.get_name(), update, nullptr);
+        }
+
         deltaTime = glfwGetTime() - lastTime;
         lastTime  = glfwGetTime();
 
@@ -361,12 +417,12 @@ main(int, char **) {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You
-        // can browse its code to learn more about Dear ImGui!).
+        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()!
+        // You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window) ImGui::ShowDemoWindow(&show_demo_window);
 
-        // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a
-        // named window.
+        // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created
+        // a named window.
         {
             static float f       = 0.0f;
             static int   counter = 0;
@@ -407,7 +463,8 @@ main(int, char **) {
         if (show_another_window) {
             ImGui::Begin(
                 "Another Window",
-                &show_another_window); // Pass a pointer to our bool variable (the window will have
+                &show_another_window); // Pass a pointer to our bool variable (the window will
+                                       // have
             // a closing button that will clear the bool when clicked)
             ImGui::Text("Hello from another window!");
             if (ImGui::Button("CloseMe")) show_another_window = false;
