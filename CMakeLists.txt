@@ -8,4 +8,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_subdirectory(external)
 add_subdirectory(core)
 add_subdirectory(test)
+
+include_directories(include)
 add_subdirectory(src)
