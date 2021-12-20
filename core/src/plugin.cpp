@@ -8,6 +8,7 @@
 #include <fstream>
 #include <cstring>
 #include <thread>
+#include <sstream>
 
 #include "util.h"
 
