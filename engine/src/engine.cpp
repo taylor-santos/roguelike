@@ -8,6 +8,7 @@
 #include <chrono>
 #include <filesystem>
 #include <iostream>
+#include <sstream>
 
 namespace Console {
 
