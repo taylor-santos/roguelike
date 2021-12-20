@@ -25,7 +25,7 @@ TEST_CASE("ShaderProgram") {
                           "  outputColor = vec4(aUniform, 1);"
                           "}";
         Shader      shader(src, Shader::Type::FRAGMENT);
-        builder.withShader(shader);
+        builder.withShader( shader);
         SUBCASE("Build") {
             CHECK_NOTHROW((void)builder.build());
         }
