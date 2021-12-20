@@ -209,7 +209,37 @@ Plugin::Library::operator=(Plugin::Library &&other) noexcept {
 // Platform-Specific Implementations
 //------------------------------------------------------------------------------------
 
-#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#if defined(__APPLE__)
+// MacOS
+
+#    include <dlfcn.h>
+
+inline void *
+load_library(const char *dir) noexcept {
+    return dlopen(dir, RTLD_LAZY);
+}
+
+inline bool
+unload_library(void *lib) noexcept {
+    return dlclose(lib);
+}
+
+inline void *
+get_library_function(void *lib, const char *func_name) noexcept {
+    return dlsym(lib, func_name);
+}
+
+std::string
+shared_lib_name(const std::string &name) noexcept {
+    return "lib" + name + ".dylib";
+}
+
+std::string
+get_error_str() noexcept {
+    return dlerror();
+}
+
+#elif defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 // Linux
 
 #    include <dlfcn.h>
