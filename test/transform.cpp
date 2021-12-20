@@ -4,7 +4,7 @@
 
 #include "doctest/doctest.h"
 
-#include "../core/include/transform.h"
+#include "transform.h"
 #include "glm/gtc/random.hpp"
 
 TEST_SUITE_BEGIN("Transform");

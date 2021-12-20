@@ -41,7 +41,3 @@ else ()
                 PRIVATE -D_POSIX_C_SOURCE=200809L)
     endif ()
 endif ()
-
-if (APPLE)
-    target_compile_definitions(core PRIVATE GL_SILENCE_DEPRECATION)
-endif ()

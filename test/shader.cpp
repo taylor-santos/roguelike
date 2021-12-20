@@ -4,8 +4,8 @@
 
 #include "doctest/doctest.h"
 
-#include "../core/include/shader.h"
-#include "../core/include/glfw.h"
+#include "shader.h"
+#include "glfw.h"
 
 TEST_SUITE_BEGIN("Shader");
 
