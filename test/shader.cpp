@@ -9,6 +9,8 @@
 
 TEST_SUITE_BEGIN("Shader");
 
+#ifndef DISABLE_RENDER_TESTS
+
 TEST_CASE("SyntaxError") {
     GLFW::Window::get(500, 500, "window");
     CHECK_THROWS(Shader("this is a syntax error", Shader::Type::FRAGMENT));
@@ -56,3 +58,5 @@ TEST_CASE("ShaderProgram") {
         CHECK_THROWS((void)builder.build());
     }
 }
+
+#endif // DISABLE_RENDER_TESTS

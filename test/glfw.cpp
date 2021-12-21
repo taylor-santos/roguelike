@@ -22,6 +22,8 @@ _glfwInputMouseClick(struct _GLFWwindow *window, int button, int action, int mod
 TEST_SUITE_BEGIN("GLFW");
 DOCTEST_CLANG_SUPPRESS_WARNING_WITH_PUSH("-Wunused-variable")
 
+#ifndef DISABLE_RENDER_TESTS
+
 TEST_CASE("WindowSingletonConstructor") {
     CHECK_NOTHROW(GLFW::Window::get(200, 100, "title"));
 }
@@ -185,5 +187,7 @@ TEST_CASE("WindowLockCursor") {
         }
     }
 }
+
+#endif // DISABLE_RENDER_TESTS
 
 DOCTEST_CLANG_SUPPRESS_WARNING_POP
