@@ -7,6 +7,7 @@
 #include <memory>
 #include <functional>
 #include <filesystem>
+#include <unordered_map>
 
 class Plugin {
 public:
