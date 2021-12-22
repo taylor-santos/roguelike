@@ -17,6 +17,13 @@ namespace Util {
 
 template<typename time_point_t>
 auto
+time_point_ms(const time_point_t &tp) {
+    using namespace std::chrono;
+    return duration_cast<milliseconds>(tp.time_since_epoch()).count();
+}
+
+template<typename time_point_t>
+auto
 put_time_point(const time_point_t &tp, const std::string &fmt = "%F %T") {
     using namespace std::chrono;
     auto sctp = time_point_cast<system_clock::duration>(

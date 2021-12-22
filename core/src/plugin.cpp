@@ -85,6 +85,9 @@ bool
 Plugin::reload_if_updated(int timeout_ms, int sleep_ms) {
     auto ec   = std::error_code();
     auto time = last_write_time(lib_dir_, ec);
+    Debug::log("checking if ", lib_name_, " has an update...");
+    Debug::log("old time: ", Util::time_point_ms(lib_time_));
+    Debug::log("new time: ", Util::time_point_ms(time));
     if (!ec && time > lib_time_) {
         Debug::log(lib_name_, " has an update, trying to read it...");
         {
@@ -133,6 +136,7 @@ Plugin::reload_if_updated(int timeout_ms, int sleep_ms) {
         lib_time_ = last_write_time(lib_dir_, ec);
         return true;
     }
+    Debug::log("library up to date, no reload needed");
     return false;
 }
 
