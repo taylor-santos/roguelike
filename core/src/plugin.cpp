@@ -8,14 +8,9 @@
 #include <fstream>
 #include <cstring>
 #include <thread>
-#include <sstream>
+#include <utility>
 
 #include "util.h"
-
-// Converts a library name, e.g. "my_lib", into a platform-specific filename.
-// On Windows, this would be "my_lib.dll". On Linux, "libmy_lib.so".
-static std::string
-shared_lib_name(const std::string &name) noexcept;
 
 // Returns a human-readable string detailing the most recent library error.
 static std::string
@@ -38,18 +33,33 @@ unload_library(void *lib) noexcept;
 static void *
 get_library_function(void *lib, const char *func_name) noexcept;
 
-// Creates a new temporary file sharing the same filename as the path argument. Then copies the
-// contents of the file located at path into the new temporary file. Returns the path to this new
-// temporary file.
-// Throws an std::runtime_error if any I/O errors occur.
+static std::string
+temp_filename(const std::filesystem::path &path) noexcept;
+
 static std::filesystem::path
-copy_file_to_temp(const std::filesystem::path &path);
+copy_file_to_temp(std::ifstream &&src);
+
+Plugin::Function::Function(Signature *fptr)
+    : fptr_{fptr} {
+    if (!fptr) throw std::invalid_argument("Function constructor given nullptr");
+}
+
+int
+Plugin::Function::operator()(void *arg) const {
+    auto fptr = *fptr_;
+    return fptr ? fptr(arg) : -1;
+}
+
+bool
+Plugin::Function::is_valid() const {
+    return *fptr_;
+}
 
 Plugin::Plugin(const std::string &name, const std::filesystem::path &directory)
     : lib_name_(name)
     , lib_dir_(directory / shared_lib_name(name))
     , lib_time_(last_write_time(lib_dir_))
-    , tmp_dir_(copy_file_to_temp(lib_dir_))
+    , tmp_dir_(copy_file_to_temp(std::ifstream(lib_dir_, std::ios::binary)))
     , lib_(tmp_dir_) {
     Debug::log(
         "loaded plugin ",
@@ -58,6 +68,7 @@ Plugin::Plugin(const std::string &name, const std::filesystem::path &directory)
         lib_dir_.string(),
         " into ",
         tmp_dir_.string());
+    Debug::log(lib_dir_.string(), " has write time ", Util::put_time_point(lib_time_));
 }
 
 std::string
@@ -65,13 +76,13 @@ Plugin::get_name() const {
     return lib_name_;
 }
 
-Plugin::FuncType
-Plugin::get_function(const std::string &name) const {
+Plugin::Function
+Plugin::get_function(const std::string &name) {
     return lib_.get_function(name);
 }
 
 bool
-Plugin::check_for_updates(int timeout_ms, int sleep_ms) {
+Plugin::reload_if_updated(int timeout_ms, int sleep_ms) {
     auto ec   = std::error_code();
     auto time = last_write_time(lib_dir_, ec);
     if (!ec && time > lib_time_) {
@@ -104,28 +115,18 @@ Plugin::check_for_updates(int timeout_ms, int sleep_ms) {
             }
             Debug::log("successfully opened new library");
             if (lib_.unload()) {
-                throw std::runtime_error(get_error_str());
+                std::string error = get_error_str();
+                Debug::log("failed to unload old library: ", error);
+                throw std::runtime_error(error);
             }
-            auto dst = std::ofstream();
-            Debug::log("attempting to open old library");
-            while (true) {
-                dst.open(tmp_dir_, std::ios::out | std::ios::binary | std::ios::trunc);
-                if (dst) break;
-                if (steady_clock::now() - start > milliseconds(timeout_ms)) {
-                    std::stringstream ss;
-                    ss << "failed to load " << lib_dir_.string() << " after " << timeout_ms
-                       << "ms, previous version is now invalid";
-                    throw std::runtime_error(ss.str());
-                }
-                Debug::log("sleeping for ", sleep_ms, "ms...");
-                std::this_thread::sleep_for(milliseconds(sleep_ms));
-            }
-            Debug::log("successfully opened old library");
-            dst << src.rdbuf();
+            Debug::log("creating new temporary file for library");
+            tmp_dir_ = copy_file_to_temp(std::move(src));
         }
         Debug::log("attempting to load new library");
         if (lib_.load(tmp_dir_)) {
-            Debug::err(get_error_str());
+            std::string error = get_error_str();
+            Debug::log("failed to load new library: ", error);
+            Debug::err(error);
             return false;
         }
         Debug::log("successfully loaded new library");
@@ -136,13 +137,17 @@ Plugin::check_for_updates(int timeout_ms, int sleep_ms) {
 }
 
 static std::filesystem::path
-copy_file_to_temp(const std::filesystem::path &path) {
-    auto temp_path = std::filesystem::temp_directory_path() / path.filename();
-
-    std::ifstream src(path, std::ios::in | std::ios::binary);
-    if (!src) {
-        throw std::runtime_error(path.string() + ": " + std::strerror(errno));
+copy_file_to_temp(std::ifstream &&src) {
+    if (!src.fail()) { // if file is valid (goodbit | eofbit), reset to beginning
+        src.seekg(0);
     }
+    // seekg might fail, check again
+    if (src.fail()) {
+        // throw file's failure as exception
+        src.exceptions(std::fstream::failbit | std::fstream::badbit);
+    }
+    auto temp_path = std::filesystem::temp_directory_path();
+    temp_path /= temp_filename(temp_path);
 
     std::ofstream dst(temp_path, std::ios::out | std::ios::binary | std::ios::trunc);
     if (!dst) {
@@ -166,18 +171,27 @@ Plugin::Library::~Library() {
     }
 }
 
-Plugin::FuncType
-Plugin::Library::get_function(const std::string &name) const {
-    if (!lib_) return nullptr;
-    auto func = get_library_function(lib_, name.c_str());
-    if (!func) {
-        throw std::runtime_error(get_error_str());
+Plugin::Function
+Plugin::Library::get_function(const std::string &name) {
+    auto it = funcs_.find(name);
+    if (it == funcs_.end()) {
+        // Function has *not* been retrieved before, query the library
+        auto fptr = lib_ ? (Function::Signature)get_library_function(lib_, name.c_str()) : nullptr;
+        auto uptr = std::make_unique<Function::Signature>(fptr);
+        auto ptr  = uptr.get();
+        funcs_[name] = std::move(uptr);
+        return Function(ptr);
     }
-    return (Plugin::FuncType)func;
+    // Function has been retrieved before and still has active users
+    return Function(it->second.get());
 }
 
 bool
 Plugin::Library::unload() {
+    Debug::log("unloading library");
+    for (auto &[name, fptr] : funcs_) {
+        *fptr = nullptr;
+    }
     if (lib_ && unload_library(lib_)) {
         return true;
     }
@@ -192,16 +206,22 @@ Plugin::Library::load(const std::filesystem::path &dir) {
     }
     lib_ = load_library(dir.string().c_str());
 
+    for (auto &[name, fptr] : funcs_) {
+        *fptr = lib_ ? (Function::Signature)get_library_function(lib_, name.c_str()) : nullptr;
+    }
+
     return !lib_;
 }
 
 Plugin::Library::Library(Plugin::Library &&other) noexcept {
     std::swap(this->lib_, other.lib_);
+    std::swap(this->funcs_, other.funcs_);
 }
 
 Plugin::Library &
 Plugin::Library::operator=(Plugin::Library &&other) noexcept {
     std::swap(this->lib_, other.lib_);
+    std::swap(this->funcs_, other.funcs_);
     return *this;
 }
 
@@ -209,10 +229,17 @@ Plugin::Library::operator=(Plugin::Library &&other) noexcept {
 // Platform-Specific Implementations
 //------------------------------------------------------------------------------------
 
-#if defined(__APPLE__)
-// MacOS
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+// Linux/MacOS
 
 #    include <dlfcn.h>
+
+#    include <unistd.h>
+
+std::string
+get_error_str() noexcept {
+    return dlerror();
+}
 
 inline void *
 load_library(const char *dir) noexcept {
@@ -229,70 +256,29 @@ get_library_function(void *lib, const char *func_name) noexcept {
     return dlsym(lib, func_name);
 }
 
+static std::string
+temp_filename(const std::filesystem::path &path) noexcept {
+    auto path_str = (path / "XXXXXX").string();
+    auto buf      = std::make_unique<char[]>(path_str.length() + 1);
+    memcpy(buf.get(), path_str.c_str(), path_str.size() + 1);
+    int fd = mkstemp(buf.get());
+    close(fd);
+    return buf.get();
+}
+
 std::string
-shared_lib_name(const std::string &name) noexcept {
+Plugin::shared_lib_name(const std::string &name) noexcept {
+#    if defined(__APPLE__)
     return "lib" + name + ".dylib";
-}
-
-std::string
-get_error_str() noexcept {
-    return dlerror();
-}
-
-#elif defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
-// Linux
-
-#    include <dlfcn.h>
-
-inline void *
-load_library(const char *dir) noexcept {
-    return dlopen(dir, RTLD_LAZY);
-}
-
-inline bool
-unload_library(void *lib) noexcept {
-    return dlclose(lib);
-}
-
-inline void *
-get_library_function(void *lib, const char *func_name) noexcept {
-    return dlsym(lib, func_name);
-}
-
-std::string
-shared_lib_name(const std::string &name) noexcept {
+#    else
     return "lib" + name + ".so";
-}
-
-std::string
-get_error_str() noexcept {
-    return dlerror();
+#    endif
 }
 
 #elif defined(_MSC_VER)
 // Windows
 
 #    include <windows.h>
-
-inline void *
-load_library(const char *dir) noexcept {
-    return (void *)LoadLibraryA(dir);
-}
-
-inline bool
-unload_library(void *lib) noexcept {
-    return !FreeLibrary((HMODULE)lib); // FreeLibrary returns nonzero on success.
-}
-
-inline void *
-get_library_function(void *lib, const char *func_name) noexcept {
-    return GetProcAddress((HMODULE)lib, func_name);
-}
-
-std::string
-shared_lib_name(const std::string &name) noexcept {
-    return name + ".dll";
-}
 
 std::string
 get_error_str() noexcept {
@@ -309,6 +295,31 @@ get_error_str() noexcept {
     std::string error(buf, sz);
     LocalFree(buf);
     return error;
+}
+
+inline void *
+load_library(const char *dir) noexcept {
+    return (void *)LoadLibraryA(dir);
+}
+
+inline bool
+unload_library(void *lib) noexcept {
+    return !FreeLibrary((HMODULE)lib); // FreeLibrary returns nonzero on success.
+}
+
+inline void *
+get_library_function(void *lib, const char *func_name) noexcept {
+    return GetProcAddress((HMODULE)lib, func_name);
+}
+
+inline std::string
+temp_filename(const std::filesystem::path &) noexcept {
+    return std::tmpnam(nullptr);
+}
+
+std::string
+Plugin::shared_lib_name(const std::string &name) noexcept {
+    return name + ".dll";
 }
 
 #else

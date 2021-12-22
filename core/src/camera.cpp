@@ -71,11 +71,11 @@ Camera::setFar(float far) {
 
 glm::vec3
 Camera::forward() const {
-    float cosP = glm::cos(pitch_);
-    float x    = -glm::sin(yaw_) * cosP;
-    float y    = glm::sin(pitch_);
-    float z    = glm::cos(yaw_) * cosP;
-    auto  f    = glm::vec3(x, y, z);
+    auto cosP = glm::cos(pitch_);
+    auto x    = -glm::sin(yaw_) * cosP;
+    auto y    = glm::sin(pitch_);
+    auto z    = glm::cos(yaw_) * cosP;
+    auto f    = glm::vec3(x, y, z);
     return f;
 }
 
@@ -99,13 +99,11 @@ Camera::viewMatrix() const {
 }
 
 glm::mat4
-Camera::getMatrix(float aspect) const {
-    if (std::isnan(aspect)) {
-        aspect = 1;
-    }
-    glm::mat4 model      = glm::mat4(1.0f);
-    glm::mat4 view       = viewMatrix();
-    glm::mat4 projection = glm::perspective(fov_, aspect, near_, far_);
-    glm::mat4 mvp        = projection * view * model;
+Camera::getMatrix(float width, float height) const {
+    auto aspect     = width / height;
+    auto model      = glm::mat4(1.0f);
+    auto view       = viewMatrix();
+    auto projection = glm::perspective(fov_, aspect, near_, far_);
+    auto mvp        = projection * view * model;
     return mvp;
 }

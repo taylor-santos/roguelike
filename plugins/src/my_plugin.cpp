@@ -4,17 +4,18 @@
 
 #include "engine.h"
 
-#include <stdexcept>
-
-static void
+static int
 my_plugin() {
     Console::log("Hello, world");
+    return 0;
 }
 
-extern "C" DLL_PUBLIC void
-start(void *state) {}
+extern "C" DLL_PUBLIC int
+start(void *state) {
+    return 0;
+}
 
-extern "C" DLL_PUBLIC void
+extern "C" DLL_PUBLIC int
 update(void *state) {
-    my_plugin();
+    return my_plugin();
 }

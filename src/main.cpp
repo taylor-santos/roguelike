@@ -33,20 +33,6 @@
 
 #include "plugin.h"
 
-static void
-call_plugin_func(const std::string &name, void (*func)(void *), void *data) {
-    if (func) {
-        try {
-            func(data);
-        } catch (const std::exception &e) {
-            std::cerr << "[" << typeid(e).name() << "] thrown in plugin \"" << name
-                      << "\": " << e.what() << std::endl;
-        } catch (...) {
-            std::cerr << "Unknown exception thrown in pluging \"" << name << "\"" << std::endl;
-        }
-    }
-}
-
 int
 main(int argc, char **argv) {
     if (argc < 2) {
@@ -56,7 +42,7 @@ main(int argc, char **argv) {
     auto &glfw   = GLFW::Manager::get();
     auto &window = GLFW::Window::get(1280, 720, "Roguelike");
 
-    std::vector<std::pair<Plugin, Plugin::FuncType>> plugins;
+    std::vector<std::pair<Plugin, Plugin::Function>> plugins;
     plugins.reserve(argc - 1);
     for (int i = 2; i < argc; i++) {
         try {
@@ -65,9 +51,9 @@ main(int argc, char **argv) {
             auto start  = plugin.get_function("start");
             auto update = plugin.get_function("update");
 
-            call_plugin_func(argv[1], start, nullptr);
+            start(nullptr);
 
-            plugins.emplace_back(std::pair{std::move(plugin), update});
+            plugins.emplace_back(std::move(plugin), update);
         } catch (const std::exception &e) {
             std::cerr << "Error loading plugin \"" << argv[i] << "\": " << e.what() << std::endl;
         }
@@ -144,25 +130,24 @@ main(int argc, char **argv) {
         style.Colors[ImGuiCol_WindowBg].w = 0.8f;
     }
     // Load Fonts
-    // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple
-    // fonts and use ImGui::PushFont()/PopFont() to select them.
-    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the
-    // font among multiple.
-    // - If the file cannot be loaded, the function will return NULL. Please handle those errors in
-    // your application (e.g. use an assertion, or display an error and quit).
-    // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture
-    // when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below
-    // will call.
+    // - If no fonts are loaded, dear imgui will use the default font. You can also load
+    // multiple fonts and use ImGui::PushFont()/PopFont() to select them.
+    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select
+    // the font among multiple.
+    // - If the file cannot be loaded, the function will return NULL. Please handle those errors
+    // in your application (e.g. use an assertion, or display an error and quit).
+    // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a
+    // texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which
+    // ImGui_ImplXXXX_NewFrame below will call.
     // - Read 'docs/FONTS.md' for more instructions and details.
-    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to
-    // write a double backslash \\ !
-    // io.Fonts->AddFontDefault();
+    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you
+    // need to write a double backslash \\ ! io.Fonts->AddFontDefault();
     // io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
     // io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
     // io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
     // io.Fonts->AddFontFromFileTTF("../../misc/fonts/ProggyTiny.ttf", 10.0f);
-    // ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL,
-    // io.Fonts->GetGlyphRangesJapanese()); IM_ASSERT(font != NULL);
+    // ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f,
+    // NULL, io.Fonts->GetGlyphRangesJapanese()); IM_ASSERT(font != NULL);
 
     const char *VERTEX_SRC =
         "#version 330 core\n"
@@ -184,9 +169,11 @@ main(int argc, char **argv) {
         "uniform bool red;"
         "void main()"
         "{"
-        "    outputColor = red ? vec4(1,fColor.y,fColor.z,1) : vec4(fColor, 1.0);" // Color it (r,
-                                                                                   // g, b, 1.0) for
-                                                                                   // fully opaque
+        "    outputColor = red ? vec4(1,fColor.y,fColor.z,1) : vec4(fColor, 1.0);" // Color it
+                                                                                   // (r, g,
+                                                                                   // b, 1.0)
+                                                                                   // for fully
+                                                                                   // opaque
         "}";
     auto program = ShaderProgram::Builder()
                        .withShader(Shader(FRAGMENT_SRC, Shader::Type::FRAGMENT))
@@ -370,17 +357,15 @@ main(int argc, char **argv) {
     transforms.emplace_back(Transform::Builder().withParent(transforms[1]).withPosition({2, 0, 0}));
     transforms.emplace_back(Transform::Builder().withParent(transforms[1]).withPosition({4, 0, 0}));
 
-    glfwSwapInterval(1);
+    glfwSwapInterval(0);
     // Main loop
     while (!window.shouldClose()) {
         for (auto &[plugin, update] : plugins) {
-            if (plugin.check_for_updates()) {
-                std::cout << "loading new functions from updated library" << std::endl;
-                update     = plugin.get_function("update");
+            if (plugin.reload_if_updated()) {
                 auto start = plugin.get_function("start");
-                call_plugin_func(plugin.get_name(), start, nullptr);
+                start(nullptr);
             }
-            call_plugin_func(plugin.get_name(), update, nullptr);
+            update(nullptr);
         }
 
         deltaTime = glfwGetTime() - lastTime;
@@ -478,8 +463,9 @@ main(int argc, char **argv) {
 
         auto [display_w, display_h] = window.getFrameBufferSize();
 
-        glm::mat4 mvp   = camera.getMatrix((float)display_w / (float)display_h);
-        GLint     mvpID = program.getUniformLocation("MVP");
+        glm::mat4 mvp =
+            camera.getMatrix(static_cast<float>(display_w), static_cast<float>(display_h));
+        GLint mvpID = program.getUniformLocation("MVP");
         glUniformMatrix4fv(mvpID, 1, GL_FALSE, glm::value_ptr(mvp));
         GLint objID = program.getUniformLocation("obj");
         for (auto &transform : transforms) {

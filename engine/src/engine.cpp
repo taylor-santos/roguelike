@@ -20,11 +20,11 @@ log(const std::string &str, const char *file, int line, const char *func) {
     auto now     = system_clock::now();
     auto tt      = system_clock::to_time_t(now);
     auto tm      = std::localtime(&tt);
-    auto path    = std::filesystem::path(file);
+    auto path    = relative(std::filesystem::path(file));
     auto message = std::stringstream();
 
-    message << "[" << std::put_time(tm, "%F %T") << " " << path.filename().string() << ":" << line
-            << " " << func << "] " << str;
+    message << "[" << std::put_time(tm, "%F %T") << " " << path.string() << ":" << line << " "
+            << func << "] " << str;
     std::cout << message.str() << std::endl;
 }
 

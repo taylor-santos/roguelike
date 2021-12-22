@@ -6,6 +6,8 @@
 
 #include "glfw.h"
 
+#include "imgui.h"
+
 #include <GLFW/glfw3.h>
 
 // Forward-declare GLFW's internal input handlers defined in glfw/src/internal.h, so that they may
@@ -67,25 +69,77 @@ TEST_CASE("WindowDrawBackground") {
 }
 
 TEST_CASE("WindowRegisterKeyCallback") {
-    bool called   = false;
-    auto callback = [&called](int, int, GLFW::Action, int) {
-        called = true;
+    bool pressed = false, released = false;
+    auto callback = [&](int, int, GLFW::Action action, int) {
+        if (action == GLFW::Action::PRESS) pressed = true;
+        if (action == GLFW::Action::RELEASE) released = true;
     };
     auto &window = GLFW::Window::get(200, 100, "title");
     SUBCASE("ValidKey") {
         window.registerKeyCallback(GLFW::Key::SPACE, callback);
         GLFWwindow *windowPtr = glfwGetCurrentContext();
 
-        SUBCASE("BeforeCallback") {
-            CHECK(called == false);
-        }
+        CHECK(pressed == false);
+        CHECK(released == false);
         SUBCASE("AfterCallback") {
             _glfwInputKey((_GLFWwindow *)windowPtr, GLFW_KEY_SPACE, 0, GLFW_PRESS, 0);
-            CHECK(called == true);
+            CHECK(pressed == true);
+            CHECK(released == false);
+            _glfwInputKey((_GLFWwindow *)windowPtr, GLFW_KEY_SPACE, 0, GLFW_RELEASE, 0);
+            CHECK(pressed == true);
+            CHECK(released == true);
         }
         SUBCASE("DifferentKey") {
             _glfwInputKey((_GLFWwindow *)windowPtr, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
-            CHECK(called == false);
+            CHECK(pressed == false);
+            CHECK(released == false);
+            _glfwInputKey((_GLFWwindow *)windowPtr, GLFW_KEY_ESCAPE, 0, GLFW_RELEASE, 0);
+            CHECK(pressed == false);
+            CHECK(released == false);
+        }
+        SUBCASE("CapturedPressCapturedRelease") {
+            auto &io               = ImGui::GetIO();
+            io.WantCaptureKeyboard = true;
+            _glfwInputKey((_GLFWwindow *)windowPtr, GLFW_KEY_SPACE, 0, GLFW_PRESS, 0);
+            CHECK(pressed == false);
+            CHECK(released == false);
+            io.WantCaptureKeyboard = true;
+            _glfwInputKey((_GLFWwindow *)windowPtr, GLFW_KEY_SPACE, 0, GLFW_RELEASE, 0);
+            CHECK(pressed == false);
+            CHECK(released == false);
+        }
+        SUBCASE("CapturedPressUncapturedRelease") {
+            auto &io               = ImGui::GetIO();
+            io.WantCaptureKeyboard = true;
+            _glfwInputKey((_GLFWwindow *)windowPtr, GLFW_KEY_SPACE, 0, GLFW_PRESS, 0);
+            CHECK(pressed == false);
+            CHECK(released == false);
+            io.WantCaptureKeyboard = false;
+            _glfwInputKey((_GLFWwindow *)windowPtr, GLFW_KEY_SPACE, 0, GLFW_RELEASE, 0);
+            CHECK(pressed == false);
+            CHECK(released == false);
+        }
+        SUBCASE("UncapturedPressCapturedRelease") {
+            auto &io               = ImGui::GetIO();
+            io.WantCaptureKeyboard = false;
+            _glfwInputKey((_GLFWwindow *)windowPtr, GLFW_KEY_SPACE, 0, GLFW_PRESS, 0);
+            CHECK(pressed == true);
+            CHECK(released == false);
+            io.WantCaptureKeyboard = true;
+            _glfwInputKey((_GLFWwindow *)windowPtr, GLFW_KEY_SPACE, 0, GLFW_RELEASE, 0);
+            CHECK(pressed == true);
+            CHECK(released == true);
+        }
+        SUBCASE("UncapturedPressUncapturedRelease") {
+            auto &io               = ImGui::GetIO();
+            io.WantCaptureKeyboard = false;
+            _glfwInputKey((_GLFWwindow *)windowPtr, GLFW_KEY_SPACE, 0, GLFW_PRESS, 0);
+            CHECK(pressed == true);
+            CHECK(released == false);
+            io.WantCaptureKeyboard = false;
+            _glfwInputKey((_GLFWwindow *)windowPtr, GLFW_KEY_SPACE, 0, GLFW_RELEASE, 0);
+            CHECK(pressed == true);
+            CHECK(released == true);
         }
     }
     SUBCASE("InvalidKey") {
@@ -94,25 +148,77 @@ TEST_CASE("WindowRegisterKeyCallback") {
 }
 
 TEST_CASE("WindowRegisterMouseCallback") {
-    bool called   = false;
-    auto callback = [&called](int, GLFW::Action, int) {
-        called = true;
+    bool pressed = false, released = false;
+    auto callback = [&](int, GLFW::Action action, int) {
+        if (action == GLFW::Action::PRESS) pressed = true;
+        if (action == GLFW::Action::RELEASE) released = true;
     };
     auto &window = GLFW::Window::get(200, 100, "title");
     SUBCASE("ValidKey") {
         window.registerMouseCallback(GLFW::Button::LEFT, callback);
         auto *windowPtr = glfwGetCurrentContext();
 
-        SUBCASE("BeforeCallback") {
-            CHECK(called == false);
-        }
+        CHECK(pressed == false);
+        CHECK(released == false);
         SUBCASE("AfterCallback") {
             _glfwInputMouseClick((_GLFWwindow *)windowPtr, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
-            CHECK(called == true);
+            CHECK(pressed == true);
+            _glfwInputMouseClick((_GLFWwindow *)windowPtr, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
+            CHECK(released == true);
         }
         SUBCASE("DifferentButton") {
             _glfwInputMouseClick((_GLFWwindow *)windowPtr, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);
-            CHECK(called == false);
+            CHECK(pressed == false);
+            _glfwInputMouseClick(
+                (_GLFWwindow *)windowPtr,
+                GLFW_MOUSE_BUTTON_RIGHT,
+                GLFW_RELEASE,
+                0);
+            CHECK(released == false);
+        }
+        SUBCASE("CapturedPressCapturedRelease") {
+            auto &io            = ImGui::GetIO();
+            io.WantCaptureMouse = true;
+            _glfwInputMouseClick((_GLFWwindow *)windowPtr, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+            CHECK(pressed == false);
+            CHECK(released == false);
+            io.WantCaptureMouse = true;
+            _glfwInputMouseClick((_GLFWwindow *)windowPtr, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
+            CHECK(pressed == false);
+            CHECK(released == false);
+        }
+        SUBCASE("CapturedPressUncapturedRelease") {
+            auto &io            = ImGui::GetIO();
+            io.WantCaptureMouse = true;
+            _glfwInputMouseClick((_GLFWwindow *)windowPtr, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+            CHECK(pressed == false);
+            CHECK(released == false);
+            io.WantCaptureMouse = false;
+            _glfwInputMouseClick((_GLFWwindow *)windowPtr, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
+            CHECK(pressed == false);
+            CHECK(released == false);
+        }
+        SUBCASE("UncapturedPressCapturedRelease") {
+            auto &io            = ImGui::GetIO();
+            io.WantCaptureMouse = false;
+            _glfwInputMouseClick((_GLFWwindow *)windowPtr, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+            CHECK(pressed == true);
+            CHECK(released == false);
+            io.WantCaptureMouse = true;
+            _glfwInputMouseClick((_GLFWwindow *)windowPtr, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
+            CHECK(pressed == true);
+            CHECK(released == true);
+        }
+        SUBCASE("UncapturedPressUncapturedRelease") {
+            auto &io            = ImGui::GetIO();
+            io.WantCaptureMouse = false;
+            _glfwInputMouseClick((_GLFWwindow *)windowPtr, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+            CHECK(pressed == true);
+            CHECK(released == false);
+            io.WantCaptureMouse = false;
+            _glfwInputMouseClick((_GLFWwindow *)windowPtr, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
+            CHECK(pressed == true);
+            CHECK(released == true);
         }
     }
     SUBCASE("InvalidKey") {

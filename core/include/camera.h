@@ -76,8 +76,10 @@ public:
     [[nodiscard]] glm::vec3
     up() const;
 
+    /* Arguments width and height must be positive (>epsilon), finite floats. Invalid arguments are
+     * undefined behavior. */
     [[nodiscard]] glm::mat4
-    getMatrix(float aspect) const;
+    getMatrix(float width, float height) const;
 
 private:
     std::pair<float, float> sens_{0.1f, 0.1f};
