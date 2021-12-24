@@ -7,7 +7,6 @@
 #include "plugin.h"
 
 #include <fstream>
-#include <thread>
 
 TEST_SUITE_BEGIN("Plugin");
 
