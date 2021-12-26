@@ -26,14 +26,26 @@
 ### Prerequisites
 
 * CMake >= 3.16
+* A C++20 supporting compiler
+    * g++ >= 8
+    * clang++ >= 9
+    * MSVC >= 19.29
 * glad >= 0.1.34 (included in `external/` directory)
-* glfw3 >= 3.3.4 (retrieved by CMake FetchContent)
+* glfw3 >= 3.3.6 (retrieved by CMake FetchContent)
     * Linux dependencies: ([more info](https://www.glfw.org/docs/latest/compile.html#compile_deps_x11))
         * X11: `xorg-dev`
         * Wayland: `libwayland-dev`
         * OSMesa: `libosmesa6-dev`
+    * Cygwin dependencies:
+        * `libX11-devel`
+        * `libXrandr-devel`
+        * `libXinerama-devel`
+        * `libXcursor-devel`
+        * `libXi-devel`
+        * `libGL-devel`
+        * `xinit`
 * glm >= 0.9.9.8 (retrieved by CMake FetchContent)
-* ImGui >= 1.83 (retrieved by CMake FetchContent)
+* ImGui (docking branch) >= 1.85 (retrieved by CMake FetchContent)
 * doctest >= 2.4.6 (retrieved by CMake FetchContent)
 
 ### Installation

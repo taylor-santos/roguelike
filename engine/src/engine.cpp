@@ -13,7 +13,6 @@
 
 namespace Console {
 
-DLL_PUBLIC
 void
 log(const std::string &str, const char *file, int line, const char *func) {
     using namespace std::chrono;
@@ -23,8 +22,8 @@ log(const std::string &str, const char *file, int line, const char *func) {
     auto path    = relative(std::filesystem::path(file));
     auto message = std::stringstream();
 
-    message << "[" << std::put_time(tm, "%F %T") << " " << path.string() << ":" << line << " "
-            << func << "] " << str;
+    message << "[" << std::put_time(tm, "%Y-%m-%d %H:%M:%S") << " " << path.string() << ":" << line
+            << " " << func << "] " << str;
     std::cout << message.str() << std::endl;
 }
 

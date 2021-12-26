@@ -33,8 +33,8 @@ unload_library(void *lib) noexcept;
 static void *
 get_library_function(void *lib, const char *func_name) noexcept;
 
-static std::string
-temp_filename(const std::filesystem::path &path) noexcept;
+static std::filesystem::path
+temp_path();
 
 static std::filesystem::path
 copy_file_to_temp(std::ifstream &&src);
@@ -85,9 +85,6 @@ bool
 Plugin::reload_if_updated(int timeout_ms, int sleep_ms) {
     auto ec   = std::error_code();
     auto time = last_write_time(lib_dir_, ec);
-    Debug::log("checking if ", lib_name_, " has an update...");
-    Debug::log("old time: ", Util::time_point_ms(lib_time_));
-    Debug::log("new time: ", Util::time_point_ms(time));
     if (!ec && time > lib_time_) {
         Debug::log(lib_name_, " has an update, trying to read it...");
         {
@@ -136,7 +133,6 @@ Plugin::reload_if_updated(int timeout_ms, int sleep_ms) {
         lib_time_ = last_write_time(lib_dir_, ec);
         return true;
     }
-    Debug::log("library up to date, no reload needed");
     return false;
 }
 
@@ -150,16 +146,15 @@ copy_file_to_temp(std::ifstream &&src) {
         // throw file's failure as exception
         src.exceptions(std::fstream::failbit | std::fstream::badbit);
     }
-    auto temp_path = std::filesystem::temp_directory_path();
-    temp_path /= temp_filename(temp_path);
+    auto tmp = temp_path();
 
-    std::ofstream dst(temp_path, std::ios::out | std::ios::binary | std::ios::trunc);
+    std::ofstream dst(tmp, std::ios::out | std::ios::binary | std::ios::trunc);
     if (!dst) {
-        throw std::runtime_error(temp_path.string() + ": " + std::strerror(errno));
+        throw std::runtime_error(tmp.string() + ": " + std::strerror(errno));
     }
 
     dst << src.rdbuf();
-    return temp_path;
+    return tmp;
 }
 
 Plugin::Library::Library(const std::filesystem::path &dir)
@@ -233,7 +228,68 @@ Plugin::Library::operator=(Plugin::Library &&other) noexcept {
 // Platform-Specific Implementations
 //------------------------------------------------------------------------------------
 
-#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#if defined(_MSC_VER) || defined(__MINGW32__)
+// Windows
+
+#    include <windows.h>
+
+std::string
+get_error_str() noexcept {
+    auto  id  = GetLastError();
+    LPSTR buf = nullptr;
+    auto  sz  = FormatMessageA(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        nullptr,
+        id,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPSTR)&buf,
+        0,
+        nullptr);
+    std::string error(buf, sz);
+    LocalFree(buf);
+    return error;
+}
+
+inline void *
+load_library(const char *dir) noexcept {
+    return (void *)LoadLibraryA(dir);
+}
+
+inline bool
+unload_library(void *lib) noexcept {
+    return !FreeLibrary((HMODULE)lib); // FreeLibrary returns nonzero on success.
+}
+
+inline void *
+get_library_function(void *lib, const char *func_name) noexcept {
+    return (void *)GetProcAddress((HMODULE)lib, func_name);
+}
+
+inline std::filesystem::path
+temp_path() {
+    TCHAR path_buf[MAX_PATH];
+    TCHAR file_buf[MAX_PATH];
+    DWORD p = GetTempPath(MAX_PATH, path_buf);
+    if (p > MAX_PATH || p == 0) {
+        throw std::runtime_error(get_error_str());
+    }
+    UINT f = GetTempFileName(path_buf, 0, 0, file_buf);
+    if (f == 0) {
+        throw std::runtime_error(get_error_str());
+    }
+    return {file_buf};
+}
+
+std::string
+Plugin::shared_lib_name(const std::string &name) noexcept {
+#    if defined(_MSC_VER)
+    return name + ".dll";
+#    elif defined(__MINGW32__)
+    return "lib" + name + ".dll";
+#    endif
+}
+
+#elif defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 // Linux/MacOS
 
 #    include <dlfcn.h>
@@ -260,8 +316,15 @@ get_library_function(void *lib, const char *func_name) noexcept {
     return dlsym(lib, func_name);
 }
 
-static std::string
-temp_filename(const std::filesystem::path &path) noexcept {
+static std::filesystem::path
+temp_path() {
+    // This a bit of a hacky workaround to tmpnam(3) being deprecated. The two alternative
+    // functions, mkstemp(3) and tmpfile(3) return a file descriptor and FILE* respectively. But we
+    // need just a filename because it is going to be stored and later opened as an std::fstream. So
+    // we can use mkstemp(3) to create a file and write its path, then immediately close the file
+    // and return the path. This obviously is not an ideal solution, so TODO: find a better way to
+    // do this.
+    auto path     = std::filesystem::temp_directory_path();
     auto path_str = (path / "XXXXXX").string();
     auto buf      = std::make_unique<char[]>(path_str.length() + 1);
     memcpy(buf.get(), path_str.c_str(), path_str.size() + 1);
@@ -274,56 +337,11 @@ std::string
 Plugin::shared_lib_name(const std::string &name) noexcept {
 #    if defined(__APPLE__)
     return "lib" + name + ".dylib";
+#    elif defined(__CYGWIN__)
+    return "cyg" + name + ".dll";
 #    else
     return "lib" + name + ".so";
 #    endif
-}
-
-#elif defined(_MSC_VER)
-// Windows
-
-#    include <windows.h>
-
-std::string
-get_error_str() noexcept {
-    auto  id  = GetLastError();
-    LPSTR buf = nullptr;
-    auto  sz  = FormatMessageA(
-        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-        NULL,
-        id,
-        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-        (LPSTR)&buf,
-        0,
-        NULL);
-    std::string error(buf, sz);
-    LocalFree(buf);
-    return error;
-}
-
-inline void *
-load_library(const char *dir) noexcept {
-    return (void *)LoadLibraryA(dir);
-}
-
-inline bool
-unload_library(void *lib) noexcept {
-    return !FreeLibrary((HMODULE)lib); // FreeLibrary returns nonzero on success.
-}
-
-inline void *
-get_library_function(void *lib, const char *func_name) noexcept {
-    return GetProcAddress((HMODULE)lib, func_name);
-}
-
-inline std::string
-temp_filename(const std::filesystem::path &) noexcept {
-    return std::tmpnam(nullptr);
-}
-
-std::string
-Plugin::shared_lib_name(const std::string &name) noexcept {
-    return name + ".dll";
 }
 
 #else
