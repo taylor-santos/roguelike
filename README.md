@@ -32,18 +32,16 @@
     * MSVC >= 19.29
 * glad >= 0.1.34 (included in `external/` directory)
 * glfw3 >= 3.3.6 (retrieved by CMake FetchContent)
-    * Linux dependencies: ([more info](https://www.glfw.org/docs/latest/compile.html#compile_deps_x11))
+* Linux dependencies:
+    * Depending on your display server: ([more info](https://www.glfw.org/docs/latest/compile.html#compile_deps_x11))
         * X11: `xorg-dev`
         * Wayland: `libwayland-dev`
         * OSMesa: `libosmesa6-dev`
-    * Cygwin dependencies:
-        * `libX11-devel`
-        * `libXrandr-devel`
-        * `libXinerama-devel`
-        * `libXcursor-devel`
-        * `libXi-devel`
-        * `libGL-devel`
-        * `xinit`
+    * `libgl1-mesa-dev`
+    * `libXrandr-dev`
+    * `libXinerama-dev`
+    * `libXcursor-dev`
+    * `libXi-dev`
 * glm >= 0.9.9.8 (retrieved by CMake FetchContent)
 * ImGui (docking branch) >= 1.85 (retrieved by CMake FetchContent)
 * doctest >= 2.4.6 (retrieved by CMake FetchContent)
