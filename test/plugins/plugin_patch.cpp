@@ -4,7 +4,7 @@
 
 #include "engine.h"
 
-extern "C" DLL_PUBLIC int
+int
 start(void *ptr) {
     int *i = static_cast<int *>(ptr);
     *i     = 2;
