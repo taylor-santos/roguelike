@@ -8,7 +8,7 @@
 #elif defined(_MSC_VER)
 #    define PLUGIN __declspec(dllexport)
 #else
-#    define PLUGIN extern "C"
+#    define PLUGIN
 #endif
 
 extern "C" PLUGIN int
