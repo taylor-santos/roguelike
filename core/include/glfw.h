@@ -2,8 +2,7 @@
 // Created by taylor-santos on 5/8/2021 at 00:56.
 //
 
-#ifndef ROGUELIKE_INCLUDE_GLFW_H
-#define ROGUELIKE_INCLUDE_GLFW_H
+#pragma once
 
 #include <array>
 #include <functional>
@@ -240,10 +239,17 @@ private:
 private:
     Window(int width, int height, const char *title);
 
-private:
-    // Encapsulates callback handler functions.
-    // Declared as friend to access Window's private callbacks.
-    friend struct WindowAccessor;
+    /***
+     * Wrappers for the GLFW input callback functions. Each function retrieves the GLFWwindow's
+     * associated GLFW::Window instance via the GLFW User Pointer, which is initialized to point to
+     * the GLFW::Window instance on construction.
+     */
+    static void
+    keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
+    static void
+    mouseCallback(GLFWwindow *window, int button, int action, int mods);
+    static void
+    cursorCallback(GLFWwindow *window, double x, double y);
 };
 
 class Manager {
@@ -264,5 +270,3 @@ private:
 };
 
 } // namespace GLFW
-
-#endif // ROGUELIKE_INCLUDE_GLFW_H

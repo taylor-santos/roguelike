@@ -2,10 +2,7 @@
 // Created by taylor-santos on 5/10/2021 at 18:38.
 //
 
-#ifndef ROGUELIKE_INCLUDE_CAMERA_H
-#define ROGUELIKE_INCLUDE_CAMERA_H
-
-#include <utility>
+#pragma once
 
 #if defined(__clang__)
 #    pragma clang diagnostic push
@@ -90,10 +87,7 @@ private:
     float                   near_{0.01f};
     float                   far_{1000.0f};
 
-public:
 private:
     [[nodiscard]] glm::mat4
     viewMatrix() const;
 };
-
-#endif // ROGUELIKE_INCLUDE_CAMERA_H
