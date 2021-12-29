@@ -6,7 +6,8 @@
 
 int
 start(void *ptr) {
-    int *i = static_cast<int *>(ptr);
-    *i     = 2;
+    auto *i = static_cast<int *>(ptr);
+
+    *i = 2;
     return 0;
 }

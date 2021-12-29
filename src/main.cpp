@@ -78,7 +78,7 @@ main(int argc, char **argv) {
             window.setCursorPos(0, 0);
         }
     });
-    glm::vec3 velocity{0, 0, 0};
+    glm::vec2 velocity{0, 0};
     window.registerKeyCallback(GLFW::Key::W, [&](int, int, GLFW::Action action, int) {
         switch (action) {
             case GLFW::Action::PRESS: velocity.y++; break;
@@ -104,13 +104,6 @@ main(int argc, char **argv) {
         switch (action) {
             case GLFW::Action::PRESS: velocity.x--; break;
             case GLFW::Action::RELEASE: velocity.x++; break;
-            case GLFW::Action::REPEAT: break;
-        }
-    });
-    window.registerKeyCallback(GLFW::Key::SPACE, [&](int, int, GLFW::Action action, int) {
-        switch (action) {
-            case GLFW::Action::PRESS: velocity.z--; break;
-            case GLFW::Action::RELEASE: velocity.z++; break;
             case GLFW::Action::REPEAT: break;
         }
     });
@@ -463,9 +456,8 @@ main(int argc, char **argv) {
 
         auto [display_w, display_h] = window.getFrameBufferSize();
 
-        glm::mat4 mvp =
-            camera.getMatrix(static_cast<float>(display_w), static_cast<float>(display_h));
-        GLint mvpID = program.getUniformLocation("MVP");
+        glm::mat4 mvp   = camera.getMatrix((float)display_w / (float)display_h);
+        GLint     mvpID = program.getUniformLocation("MVP");
         glUniformMatrix4fv(mvpID, 1, GL_FALSE, glm::value_ptr(mvp));
         GLint objID = program.getUniformLocation("obj");
         for (auto &transform : transforms) {
