@@ -32,7 +32,7 @@ namespace Debug {
 
 template<typename... Args>
 void
-log(const char *file, int line, const char *func, Args &&...args) {
+log(std::ostream &os, const char *file, int line, const char *func, Args &&...args) {
     using namespace std::chrono;
     auto path    = relative(std::filesystem::path(file));
     auto message = std::stringstream();
@@ -40,27 +40,11 @@ log(const char *file, int line, const char *func, Args &&...args) {
     message << "[" << Util::put_time_point(system_clock::now()) << " " << path.string() << ":"
             << line << " " << func << "] ";
     (message << ... << args);
-    std::cout << message.str() << std::endl;
+    os << message.str() << std::endl;
 }
 
-template<typename... Args>
-void
-err(const char *file, int line, const char *func, Args &&...args) {
-    using namespace std::chrono;
-    auto now     = system_clock::now();
-    auto tt      = system_clock::to_time_t(now);
-    auto tm      = std::localtime(&tt);
-    auto path    = std::filesystem::path(file);
-    auto message = std::stringstream();
-
-    message << "[" << std::put_time(tm, "%Y-%m-%d %H:%M:%S") << " " << path.filename().string()
-            << ":" << line << " " << func << "] ";
-    (message << ... << args);
-    std::cerr << message.str() << std::endl;
-}
-
-#define err(...) log(__FILE__, __LINE__, __func__, "ERROR: ", __VA_ARGS__)
-#define log(...) log(__FILE__, __LINE__, __func__, "DEBUG: ", __VA_ARGS__)
+#define err(...) log(std::cerr, __FILE__, __LINE__, __func__, "ERROR: ", __VA_ARGS__)
+#define log(...) log(std::cout, __FILE__, __LINE__, __func__, "DEBUG: ", __VA_ARGS__)
 
 } // namespace Debug
 
