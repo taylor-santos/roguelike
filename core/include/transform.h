@@ -2,8 +2,7 @@
 // Created by taylor-santos on 5/16/2021 at 14:58.
 //
 
-#ifndef ROGUELIKE_INCLUDE_TRANSFORM_H
-#define ROGUELIKE_INCLUDE_TRANSFORM_H
+#pragma once
 
 #include <list>
 #include <ostream>
@@ -78,6 +77,34 @@ public:
         glm::dvec3 scale{1, 1, 1};
         glm::dvec3 skew{0, 0, 0};
     };
+
+    /***
+     * Decompose an affine matrix into its constituent parts: translation, rotation, scale, and
+     * skew.
+     * @param mat the 4x4 affine matrix to be decomposed
+     * @return a struct that contains the translation, rotation, scale, and skew that make up the
+     * matrix
+     */
+    static Properties
+    decompose(glm::dmat4 mat);
+
+    /***
+     * Reconstruct an affine matrix from its translation, rotation, scale, and skew.
+     * @param mat a struct containing translation, rotation, scale, and skew to be joined into a
+     * matrix
+     * @return a 4x4 affine matrix representing the same transformation as the input parameters
+     */
+    static glm::dmat4
+    recompose(const Transform::Properties &mat);
+
+    /***
+     * Reconstruct an affine matrix from the inverse of its translation, rotation, scale, and skew.
+     * @param mat a struct containing the inverse translation, rotation, scale, and skew to be
+     * joined into a matrix
+     * @return a 4x4 affine matrix representing the inverted transformation of the input parameters
+     */
+    static glm::dmat4
+    recomposeInverse(const Transform::Properties &mat);
 
     Transform();
 
@@ -260,5 +287,3 @@ private:
     void
     invalidateCache() const;
 };
-
-#endif // ROGUELIKE_INCLUDE_TRANSFORM_H

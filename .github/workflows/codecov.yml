@@ -15,8 +15,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev xorg-dev libgl1-mesa-dev lcov
-
+          sudo apt-get install -y xorg-dev libgl1-mesa-dev lcov
       - name: Configure CMake with Coverage
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_CXX_FLAGS=--coverage
 
@@ -26,15 +25,17 @@ jobs:
       - name: Test
         uses: GabrielBB/xvfb-action@v1
         with:
-          working-directory: ${{github.workspace}}/build/src
-          run: |
-            ctest -C ${{env.BUILD_TYPE}}
-            lcov --directory ${{github.workspace}}/build/src --capture --output-file coverage.info
-            lcov --list coverage.info
-
+          working-directory: ${{github.workspace}}/build/test
+          run: ctest -C ${{env.BUILD_TYPE}}
+      - name: lcov
+        working-directory: ${{github.workspace}}/build
+        run: |
+          lcov -d core --capture --output-file coverage.info
+          lcov --list coverage.info
       - name: Upload Coverage
         uses: codecov/codecov-action@v2
         with:
+          working-directory: ${{github.workspace}}/build
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: unittests
           files: coverage.info

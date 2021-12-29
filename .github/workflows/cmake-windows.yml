@@ -9,9 +9,9 @@ env:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
-        platform: [ windows-2019,
-                    windows-2022 ]
+        platform: [ windows-2019, windows-2022 ]
         architecture: [ Win32, x64 ]
 
     name: ${{ matrix.platform }} - ${{ matrix.architecture }}
@@ -19,11 +19,14 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: List Generators
-        run: cmake --help
-
       - name: Configure CMake
-        run: cmake -A ${{ matrix.architecture }} -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+        run: cmake -A ${{ matrix.architecture }} -B ${{ github.workspace }}/build -DDISABLE_RENDER_TESTS=ON
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }}
+
+      - name: Test
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          working-directory: ${{ github.workspace }}/build/test
+          run: ctest -C ${{ env.BUILD_TYPE }} --rerun-failed --output-on-failure

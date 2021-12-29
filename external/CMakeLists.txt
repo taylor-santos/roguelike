@@ -2,6 +2,9 @@ include(FetchContent)
 
 add_subdirectory(glad)
 
+# Don't re-download external dependencies if they are already present
+set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
+
 #------------------------------------------------------------------------------------
 # Fetch glfw
 #------------------------------------------------------------------------------------
@@ -10,10 +13,11 @@ message(STATUS "Fetching glfw...")
 set(GLFW_BUILD_EXAMPLES OFF)
 set(GLFW_BUILD_TESTS OFF)
 set(GLFW_BUILD_DOCS OFF)
+set(GLFW_INSTALL OFF)
 FetchContent_Declare(
         glfw
         GIT_REPOSITORY https://github.com/glfw/glfw
-        GIT_TAG d3b73abba0cab8cbb2a638151477f54d8502a07e # 3.3.5
+        GIT_TAG 7d5a16ce714f0b5f4efa3262de22e4d948851525 # 3.3.6
 )
 FetchContent_MakeAvailable(glfw)
 
@@ -36,6 +40,7 @@ FetchContent_MakeAvailable(glm)
 message(STATUS "Fetching doctest...")
 set(DOCTEST_WITH_TESTS OFF)
 set(DOCTEST_NO_INSTALL ON)
+set(DOCTEST_WITH_MAIN_IN_STATIC_LIB OFF)
 FetchContent_Declare(
         doctest
         GIT_REPOSITORY https://github.com/onqtam/doctest
@@ -57,7 +62,7 @@ FetchContent_GetProperties(imgui)
 if (NOT imgui_POPULATED)
     FetchContent_Populate(imgui)
 
-    add_library(lib_imgui
+    add_library(imgui
             ${imgui_SOURCE_DIR}/imgui.cpp
             ${imgui_SOURCE_DIR}/imgui_draw.cpp
             ${imgui_SOURCE_DIR}/imgui_widgets.cpp
@@ -65,11 +70,22 @@ if (NOT imgui_POPULATED)
             ${imgui_SOURCE_DIR}/imgui_demo.cpp
             ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
             ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
-    target_link_libraries(lib_imgui
-            glad
-            glfw)
-    target_include_directories(lib_imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+    target_link_libraries(imgui
+            PUBLIC glad glfw)
+    target_include_directories(imgui
+            PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+    set_target_properties(imgui PROPERTIES
+            CXX_VISIBILITY_PRESET hidden
+            VISIBILITY_INLINES_HIDDEN ON)
     if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        target_compile_options(lib_imgui PRIVATE -Wno-deprecated-enum-enum-conversion)
+        target_compile_options(imgui
+                PRIVATE -fPIC -Wno-deprecated-enum-enum-conversion)
+        if (MINGW)
+            target_link_libraries(imgui
+                    PRIVATE imm32)
+        endif ()
+    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        target_compile_options(imgui
+                PRIVATE -fPIC)
     endif ()
 endif ()

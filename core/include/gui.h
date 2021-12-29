@@ -2,11 +2,9 @@
 // Created by taylor-santos on 5/8/2021 at 15:41.
 //
 
-#ifndef ROGUELIKE_INCLUDE_GUI_H
-#define ROGUELIKE_INCLUDE_GUI_H
+#pragma once
 
 struct ImGuiContext;
-struct ImFontAtlas;
 
 namespace GUI {
 
@@ -37,5 +35,3 @@ private:
 };
 
 } // namespace GUI
-
-#endif // ROGUELIKE_INCLUDE_GUI_H

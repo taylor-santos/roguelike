@@ -2,8 +2,7 @@
 // Created by taylor-santos on 5/24/2021 at 21:34.
 //
 
-#ifndef ROGUELIKE_INCLUDE_SHADER_H
-#define ROGUELIKE_INCLUDE_SHADER_H
+#pragma once
 
 #include <glad/glad.h>
 #include <memory>
@@ -79,5 +78,3 @@ private:
 
     explicit ShaderProgram(GLenum program);
 };
-
-#endif // ROGUELIKE_INCLUDE_SHADER_H

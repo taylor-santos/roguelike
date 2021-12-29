@@ -6,7 +6,6 @@
 
 #include <stdexcept>
 
-#include "doctest/doctest.h"
 #include "glfw.h"
 
 static std::string
@@ -44,7 +43,6 @@ glCheckError() {
 
 Shader::Shader(const std::string &src, Type type)
     : shader_{std::make_shared<ShaderID>(static_cast<GLenum>(type))} {
-    CHECK(glIsShader(shader_->id));
     const char *src_c = src.c_str();
     glShaderSource(shader_->id, 1, (const GLchar **)&src_c, nullptr);
     glCheckError();
@@ -65,24 +63,23 @@ Shader::Shader(const std::string &src, Type type)
 
 Shader::ShaderID::ShaderID(GLenum type)
     : id{glCreateShader(type)} {
-    if (id == 0) {
+    if (!glIsShader(id)) {
         throw std::runtime_error(glErrorString(glGetError()));
     }
-    CHECK(glIsShader(id));
 }
 Shader::ShaderID::~ShaderID() {
-    CHECK(glIsShader(id));
     glDeleteShader(id);
     glCheckError();
 }
 
 ShaderProgram::ShaderProgram(GLenum program)
     : program_{program} {
-    CHECK(glIsProgram(program_));
+    if (!glIsProgram(program_)) {
+        throw std::runtime_error(glErrorString(glGetError()));
+    }
 }
 
 ShaderProgram::~ShaderProgram() {
-    CHECK(glIsProgram(program_));
     glDeleteProgram(program_);
     glCheckError();
 }
@@ -91,9 +88,6 @@ void
 ShaderProgram::use() const {
     glUseProgram(program_);
     glCheckError();
-    GLint curr = 0;
-    glGetIntegerv(GL_CURRENT_PROGRAM, &curr);
-    CHECK(curr == program_);
 }
 
 GLint
@@ -112,7 +106,7 @@ ShaderProgram::Builder::withShader(const Shader &shader) {
 ShaderProgram
 ShaderProgram::Builder::build() {
     auto program = glCreateProgram();
-    if (program == 0) {
+    if (!glIsProgram(program)) {
         throw std::runtime_error(glErrorString(glGetError()));
     }
     for (auto &shader : shaders_) {
@@ -145,65 +139,4 @@ ShaderProgram::Builder::build() {
         glCheckError();
     }
     return ShaderProgram(program);
-}
-
-TEST_SUITE_BEGIN("Shader");
-
-TEST_CASE("SyntaxError") {
-    GLFW::Window::get(500, 500, "window");
-    CHECK_THROWS(Shader("this is a syntax error", Shader::Type::FRAGMENT));
-}
-
-TEST_CASE("ShaderProgram") {
-    GLFW::Window::get(500, 500, "window");
-    auto builder = ShaderProgram::Builder();
-    SUBCASE("WithShader") {
-        std::string src = "#version 140\n"
-                          "out vec4 outputColor;"
-                          "uniform vec3 aUniform;"
-                          "void main() {"
-                          "  outputColor = vec4(aUniform, 1);"
-                          "}";
-        Shader      shader(src, Shader::Type::FRAGMENT);
-        builder.withShader(shader);
-        SUBCASE("Build") {
-            CHECK_NOTHROW((void)builder.build());
-        }
-        SUBCASE("Use") {
-            auto program = builder.build();
-            program.use();
-        }
-        SUBCASE("GetUniformLocation") {
-            auto program = builder.build();
-            CHECK(program.getUniformLocation("aUniform") != -1);
-        }
-        SUBCASE("InvalidUniform") {
-            auto program = builder.build();
-            CHECK(program.getUniformLocation("invalidName") == -1);
-        }
-        SUBCASE("ShaderAttachedTwice") {
-            builder.withShader(shader);
-            CHECK_THROWS((void)builder.build());
-        }
-    }
-    SUBCASE("UnresolvedFunction") {
-        std::string src = "#version 140\n"
-                          "void foo();"
-                          "void main() {"
-                          "  foo();"
-                          "}";
-        builder.withShader(Shader(src, Shader::Type::FRAGMENT));
-        CHECK_THROWS((void)builder.build());
-    }
-}
-
-TEST_CASE("glErrorString") {
-    glErrorString(GL_NO_ERROR);
-    glErrorString(GL_INVALID_ENUM);
-    glErrorString(GL_INVALID_VALUE);
-    glErrorString(GL_INVALID_OPERATION);
-    glErrorString(GL_INVALID_FRAMEBUFFER_OPERATION);
-    glErrorString(GL_OUT_OF_MEMORY);
-    glErrorString(GL_STACK_UNDERFLOW);
-    glErrorString(GL_STACK_OVERFLOW);
 }
