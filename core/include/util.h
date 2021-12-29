@@ -39,7 +39,7 @@ namespace Debug {
 
 template<typename... Args>
 void
-log(std::ostream &os, const char *file, int line, const char *func, Args &&...args) {
+debug_log(std::ostream &os, const char *file, int line, const char *func, Args &&...args) {
     using namespace std::chrono;
     auto path    = relative(std::filesystem::path(file));
     auto message = std::stringstream();
@@ -50,8 +50,8 @@ log(std::ostream &os, const char *file, int line, const char *func, Args &&...ar
     os << message.str() << std::endl;
 }
 
-#define err(...) log(std::cerr, __FILE__, __LINE__, __func__, "ERROR: ", __VA_ARGS__)
-#define log(...) log(std::cout, __FILE__, __LINE__, __func__, "DEBUG: ", __VA_ARGS__)
+#define err(...) debug_log(std::cerr, __FILE__, __LINE__, __func__, "ERROR: ", __VA_ARGS__)
+#define log(...) debug_log(std::cout, __FILE__, __LINE__, __func__, "DEBUG: ", __VA_ARGS__)
 
 } // namespace Debug
 

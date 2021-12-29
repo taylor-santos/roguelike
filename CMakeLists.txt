@@ -9,4 +9,6 @@ set(CMAKE_VERBOSE_MAKEFILE ON) #@NOMERGE
 add_subdirectory(external)
 add_subdirectory(core)
 add_subdirectory(test)
+add_subdirectory(engine)
+add_subdirectory(plugins)
 add_subdirectory(src)

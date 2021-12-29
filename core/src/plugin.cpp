@@ -103,7 +103,7 @@ Plugin::reload_if_updated(int timeout_ms, int sleep_ms) {
                         src.seekg(0);      // Return to beginning of file.
                         break;
                     }
-                    Debug::err("file is readable, but empty");
+                    Debug::log("file is readable, but empty");
                     src.close(); // Close the file so that it can be written to while we sleep.
                 }
                 if (steady_clock::now() - start > milliseconds(timeout_ms)) {

@@ -4,7 +4,8 @@ set(BUILD_SRC
         gui.cpp
         transform.cpp
         camera.cpp
-        shader.cpp)
+        shader.cpp
+        plugin.cpp)
 
 set(PUBLIC_LIBS
         imgui
