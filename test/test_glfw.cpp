@@ -243,34 +243,6 @@ TEST_CASE("WindowRegisterCursorCallback") {
     }
 }
 
-TEST_CASE("WindowGetSetCursorPos") {
-    auto &window = GLFW::Window::get(200, 100, "title");
-    SUBCASE("TwoArgs") {
-        window.setCursorPos(1, 2);
-        SUBCASE("ZeroedCursorPos") {
-            auto [x, y] = window.getCursorPos();
-            SUBCASE("X") {
-                CHECK(x == 1);
-            }
-            SUBCASE("Y") {
-                CHECK(y == 2);
-            }
-        }
-    }
-    SUBCASE("Pair") {
-        window.setCursorPos({3, 4});
-        SUBCASE("ZeroedCursorPos") {
-            auto [x, y] = window.getCursorPos();
-            SUBCASE("X") {
-                CHECK(x == 3);
-            }
-            SUBCASE("Y") {
-                CHECK(y == 4);
-            }
-        }
-    }
-}
-
 TEST_CASE("WindowLockCursor") {
     auto &window = GLFW::Window::get(200, 100, "title");
     SUBCASE("Locked") {

@@ -13,7 +13,22 @@ jobs:
       matrix:
         platform: [ ubuntu-18.04, ubuntu-20.04 ]
         compiler: [ 8, 9, 10, 11 ]
-    name: ${{ matrix.platform }} - GCC ${{ matrix.compiler }}
+        display: [ {
+          name: X11,
+          cmake: "",
+          deps: "xorg-dev",
+        },
+          {
+            name: Wayland,
+            cmake: "-D GLFW_USE_WAYLAND=ON",
+            deps: "libwayland-dev libxkbcommon-dev wayland-protocols extra-cmake-modules",
+          },
+          {
+            name: OSMesa (Headless),
+            cmake: "-D GLFW_USE_OSMESA=ON",
+            deps: "",
+          } ]
+    name: ${{ matrix.platform }} ${{ matrix.display.name }} - GCC ${{ matrix.compiler }}
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v2
@@ -22,12 +37,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-          sudo apt-get install -y xorg-dev libgl1-mesa-dev gcc-${{ matrix.compiler }} g++-${{ matrix.compiler }}
+          sudo apt-get install -y ${{ matrix.display.deps }} libgl1-mesa-dev gcc-${{ matrix.compiler }} g++-${{ matrix.compiler }}
+
       - name: Configure CMake
         env:
           CC: gcc-${{ matrix.compiler }}
           CXX: g++-${{ matrix.compiler }}
-        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} ${{ matrix.display.cmake }}
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }}

@@ -30,40 +30,61 @@
     * g++ >= 8
     * clang++ >= 9
     * MSVC >= 19.29
-* glad >= 0.1.34 (included in `external/` directory)
-* glfw3 >= 3.3.6 (retrieved by CMake FetchContent)
 * Linux dependencies:
-    * Depending on your display server: ([more info](https://www.glfw.org/docs/latest/compile.html#compile_deps_x11))
-        * X11: `xorg-dev`
-        * Wayland: `libwayland-dev`
-        * OSMesa: `libosmesa6-dev`
-    * `libgl1-mesa-dev`
-    * `libXrandr-dev`
-    * `libXinerama-dev`
-    * `libXcursor-dev`
-    * `libXi-dev`
-* glm >= 0.9.9.8 (retrieved by CMake FetchContent)
-* ImGui (docking branch) >= 1.85 (retrieved by CMake FetchContent)
-* doctest >= 2.4.6 (retrieved by CMake FetchContent)
+    * GLFW dependencies: [See here](https://www.glfw.org/docs/latest/compile.html#compile_deps) for dependencies based
+      on your distro and display server.
+        * For example, on Debian with X11 you only need the `xorg-dev` package.
+        * On Debian with Wayland, you need the following packages:
+            * `libwayland-dev`
+            * `libxkbcommon-dev`
+            * `wayland-protocols`
+            * `extra-cmake-modules`
+    * An OpenGL implementation:
+        * Mesa can be installed on Debian with the `libgl1-mesa-dev` package.
+* The following dependencies are fetched and built automatically by CMake:
+    * glad >= 0.1.34
+    * glfw3 >= 3.3.6
+    * glm >= 0.9.9.8
+    * ImGui (docking branch) >= 1.85
+    * doctest >= 2.4.6
 
 ### Installation
 
-1. Clone the repo
+1. Clone the repo and create a build directory:
 
     ```sh
     git clone https://github.com/taylor-santos/roguelike
-    ```
-
-1. Run CMake
-    ```sh
+    cd roguelike
     mkdir build
     cd build
-    cmake -DCMAKE_BUILD_TYPE=Release ..
     ```
 
-1. Build
+2. Run CMake, depending on your display server:
+    * X11 / Windows / MacOS:
+      ```sh
+       cmake -D CMAKE_BUILD_TYPE=Release ..
+      ```
+    * Wayland:
+      ```
+      cmake -D CMAKE_BUILD_TYPE=Release -D GLFW_USE_WAYLAND=ON ..
+      ```
+    * OSMesa (headless):
+      ```
+      cmake -D CMAKE_BUILD_TYPE=Release -D GLFW_USE_OSMESA=ON ..
+      ```
+
+3. Build
     ```sh
     cmake --build .
+    ```
+4. Run Application
+    ```sh
+    
+    ```
+5. Run Tests
+    ```sh
+    cd test
+    ctest -C Release --rerun-failed --output-on-failure
     ```
 
 <!-- CONTRIBUTING -->

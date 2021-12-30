@@ -47,7 +47,7 @@ TEST_CASE("CameraProjection") {
             TEST_VEC_EQ(glm::cross(up, -forward), right);
             TEST_VEC_EQ(glm::cross(-forward, right), up);
 
-            auto      mat = camera.getMatrix(1.0, 1.0);
+            auto      mat = camera.getMatrix(1.0);
             glm::vec3 pos = camera.transform.position();
             for (int x = -1; x <= 1; x++) {
                 auto xpos = static_cast<float>(x) * right;

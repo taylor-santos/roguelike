@@ -13,12 +13,27 @@ jobs:
       matrix:
         platform: [ ubuntu-18.04, ubuntu-20.04 ]
         compiler: [ 9, 10, 11, 12 ]
+        display: [ {
+          name: X11,
+          cmake: "",
+          deps: "xorg-dev",
+        },
+          {
+            name: Wayland,
+            cmake: "-D GLFW_USE_WAYLAND=ON",
+            deps: "libwayland-dev libxkbcommon-dev wayland-protocols extra-cmake-modules",
+          },
+          {
+            name: OSMesa (Headless),
+            cmake: "-D GLFW_USE_OSMESA=ON",
+            deps: "",
+          } ]
         exclude:
           - platform: ubuntu-18.04
             compiler: 11
           - platform: ubuntu-18.04
             compiler: 12
-    name: ${{ matrix.platform }} - Clang ${{ matrix.compiler }}
+    name: ${{ matrix.platform }} ${{ matrix.display.name }} - Clang ${{ matrix.compiler }}
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v2
