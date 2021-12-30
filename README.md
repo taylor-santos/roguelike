@@ -33,12 +33,13 @@
 * Linux dependencies:
     * GLFW dependencies: [See here](https://www.glfw.org/docs/latest/compile.html#compile_deps) for dependencies based
       on your distro and display server.
-        * For example, on Debian with X11 you only need the `xorg-dev` package.
-        * On Debian with Wayland, you need the following packages:
+        * X11 on Debian requires only the `xorg-dev` package.
+        * Wayland on Debian needs the following packages:
             * `libwayland-dev`
             * `libxkbcommon-dev`
             * `wayland-protocols`
             * `extra-cmake-modules`
+        * OSMesa (headless) on Debian requires the `libosmesa6-dev` package.
     * An OpenGL implementation:
         * Mesa can be installed on Debian with the `libgl1-mesa-dev` package.
 * The following dependencies are fetched and built automatically by CMake:

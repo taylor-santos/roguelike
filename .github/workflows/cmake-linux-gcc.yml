@@ -26,7 +26,7 @@ jobs:
           {
             name: OSMesa (Headless),
             cmake: "-D GLFW_USE_OSMESA=ON",
-            deps: "",
+            deps: "libosmesa6-dev",
           } ]
     name: ${{ matrix.platform }} ${{ matrix.display.name }} - GCC ${{ matrix.compiler }}
     runs-on: ${{ matrix.platform }}
