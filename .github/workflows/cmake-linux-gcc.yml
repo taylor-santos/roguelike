@@ -20,7 +20,7 @@ jobs:
         },
           {
             name: Wayland,
-            cmake: "-D GLFW_USE_WAYLAND=ON",
+            cmake: "-D GLFW_USE_WAYLAND=ON -D DISABLE_RENDER_TESTS=ON", # Headless wayland tests are not supported
             deps: "libwayland-dev libxkbcommon-dev wayland-protocols extra-cmake-modules",
           },
           {
@@ -28,6 +28,11 @@ jobs:
             cmake: "-D GLFW_USE_OSMESA=ON",
             deps: "libosmesa6-dev",
           } ]
+        exclude:
+          # Ubuntu-18.04 only supports WaylandProtocols 1.13-1, which is less than the required 1.15
+          - platform: ubuntu-18.04
+            display:
+              name: Wayland
     name: ${{ matrix.platform }} ${{ matrix.display.name }} - GCC ${{ matrix.compiler }}
     runs-on: ${{ matrix.platform }}
     steps:
@@ -43,7 +48,7 @@ jobs:
         env:
           CC: gcc-${{ matrix.compiler }}
           CXX: g++-${{ matrix.compiler }}
-        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} ${{ matrix.display.cmake }}
+        run: cmake -B ${{ github.workspace }}/build -D CMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} ${{ matrix.display.cmake }}
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }}

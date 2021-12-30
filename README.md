@@ -32,14 +32,15 @@
     * MSVC >= 19.29
 * Linux dependencies:
     * GLFW dependencies: [See here](https://www.glfw.org/docs/latest/compile.html#compile_deps) for dependencies based
-      on your distro and display server.
-        * X11 on Debian requires only the `xorg-dev` package.
-        * Wayland on Debian needs the following packages:
+      on your distro and display server. The following packages are for Debian and its derivatives, and may need to be
+      adjusted for your target distro:
+        * X11 requires only the `xorg-dev` package.
+        * Wayland requires the following packages:
             * `libwayland-dev`
             * `libxkbcommon-dev`
-            * `wayland-protocols`
+            * `wayland-protocols` >= 1.15
             * `extra-cmake-modules`
-        * OSMesa (headless) on Debian requires the `libosmesa6-dev` package.
+        * OSMesa (headless) requires the `libosmesa6-dev` package.
     * An OpenGL implementation:
         * Mesa can be installed on Debian with the `libgl1-mesa-dev` package.
 * The following dependencies are fetched and built automatically by CMake:
@@ -61,6 +62,8 @@
     ```
 
 2. Run CMake, depending on your display server:
+
+   (Note: tests that require a display can be disabled with the `-D DISABLE_RENDER_TESTS=ON` flag)
     * X11 / Windows / MacOS:
       ```sh
        cmake -D CMAKE_BUILD_TYPE=Release ..
@@ -80,9 +83,9 @@
     ```
 4. Run Application
     ```sh
-    
+    ./roguelike plugins/ my_plugin
     ```
-5. Run Tests
+6. Run Tests
     ```sh
     cd test
     ctest -C Release --rerun-failed --output-on-failure
