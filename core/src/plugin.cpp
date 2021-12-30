@@ -40,9 +40,7 @@ static std::filesystem::path
 copy_file_to_temp(std::ifstream &&src);
 
 Plugin::Function::Function(Signature *fptr)
-    : fptr_{fptr} {
-    if (!fptr) throw std::invalid_argument("Function constructor given nullptr");
-}
+    : fptr_{fptr} {}
 
 int
 Plugin::Function::operator()(void *arg) const {
@@ -60,7 +58,10 @@ Plugin::Plugin(const std::string &name, const std::filesystem::path &directory)
     , lib_dir_(directory / shared_lib_name(name))
     , lib_time_(last_write_time(lib_dir_))
     , tmp_dir_(copy_file_to_temp(std::ifstream(lib_dir_, std::ios::binary)))
-    , lib_(tmp_dir_) {
+    , lib_(load_library(tmp_dir_.string().c_str())) {
+    if (!lib_) {
+        throw std::runtime_error(get_error_str());
+    }
     Debug::log(
         "loaded plugin ",
         lib_name_,
@@ -71,6 +72,12 @@ Plugin::Plugin(const std::string &name, const std::filesystem::path &directory)
     Debug::log(lib_dir_.string(), " has write time ", Util::put_time_point(lib_time_));
 }
 
+Plugin::~Plugin() {
+    if (lib_ && unload_library(lib_)) {
+        Debug::err(get_error_str());
+    }
+}
+
 std::string
 Plugin::get_name() const {
     return lib_name_;
@@ -78,7 +85,17 @@ Plugin::get_name() const {
 
 Plugin::Function
 Plugin::get_function(const std::string &name) {
-    return lib_.get_function(name);
+    auto it = funcs_.find(name);
+    if (it == funcs_.end()) {
+        // Function has *not* been retrieved before, query the library
+        auto fptr = lib_ ? (Function::Signature)get_library_function(lib_, name.c_str()) : nullptr;
+        auto uptr = std::make_unique<Function::Signature>(fptr);
+        auto ptr  = uptr.get();
+        funcs_[name] = std::move(uptr);
+        return Function(ptr);
+    }
+    // Function has been retrieved before and still has active users
+    return Function(it->second.get());
 }
 
 bool
@@ -114,7 +131,7 @@ Plugin::reload_if_updated(int timeout_ms, int sleep_ms) {
                 std::this_thread::sleep_for(milliseconds(sleep_ms));
             }
             Debug::log("successfully opened new library");
-            if (lib_.unload()) {
+            if (unload_lib()) {
                 std::string error = get_error_str();
                 Debug::log("failed to unload old library: ", error);
                 throw std::runtime_error(error);
@@ -123,7 +140,7 @@ Plugin::reload_if_updated(int timeout_ms, int sleep_ms) {
             tmp_dir_ = copy_file_to_temp(std::move(src));
         }
         Debug::log("attempting to load new library");
-        if (lib_.load(tmp_dir_)) {
+        if (load_lib(tmp_dir_)) {
             std::string error = get_error_str();
             Debug::log("failed to load new library: ", error);
             Debug::err(error);
@@ -133,6 +150,46 @@ Plugin::reload_if_updated(int timeout_ms, int sleep_ms) {
         lib_time_ = last_write_time(lib_dir_, ec);
         return true;
     }
+    return false;
+}
+
+/***
+ * Try to load a new library from disk and unload the previous one. Replaces all retrieved
+ * functions with the new library's equivalents.
+ * @param dir The path to the new library file to be loaded.
+ * @return false if successful, true otherwise. Failure can be diagnosed with get_error_str().
+ */
+bool
+Plugin::load_lib(const std::filesystem::path &dir) {
+    Debug::log("loading library from ", dir.string());
+    auto new_lib = load_library(dir.string().c_str());
+    if (!new_lib) return true;
+    if (lib_ && unload_lib()) {
+        unload_library(new_lib);
+        return true;
+    }
+    lib_ = new_lib;
+    for (auto &[name, fptr] : funcs_) {
+        *fptr = (Function::Signature)get_library_function(lib_, name.c_str());
+    }
+    return !lib_;
+}
+
+/***
+ * Try to unload the wrapped library and disable any retrieved functions.
+ * @return false if successful, true otherwise. Failure can be diagnosed with get_error_str().
+ */
+bool
+Plugin::unload_lib() {
+    if (!lib_) return false;
+    Debug::log("unloading library");
+    for (auto &[name, fptr] : funcs_) {
+        *fptr = nullptr;
+    }
+    if (lib_ && unload_library(lib_)) {
+        return true;
+    }
+    lib_ = nullptr;
     return false;
 }
 
@@ -155,73 +212,6 @@ copy_file_to_temp(std::ifstream &&src) {
 
     dst << src.rdbuf();
     return tmp;
-}
-
-Plugin::Library::Library(const std::filesystem::path &dir)
-    : lib_(load_library(dir.string().c_str())) {
-    if (!lib_) {
-        throw std::runtime_error(get_error_str());
-    }
-}
-
-Plugin::Library::~Library() {
-    if (lib_ && unload_library(lib_)) {
-        Debug::err(get_error_str());
-    }
-}
-
-Plugin::Function
-Plugin::Library::get_function(const std::string &name) {
-    auto it = funcs_.find(name);
-    if (it == funcs_.end()) {
-        // Function has *not* been retrieved before, query the library
-        auto fptr = lib_ ? (Function::Signature)get_library_function(lib_, name.c_str()) : nullptr;
-        auto uptr = std::make_unique<Function::Signature>(fptr);
-        auto ptr  = uptr.get();
-        funcs_[name] = std::move(uptr);
-        return Function(ptr);
-    }
-    // Function has been retrieved before and still has active users
-    return Function(it->second.get());
-}
-
-bool
-Plugin::Library::unload() {
-    Debug::log("unloading library");
-    for (auto &[name, fptr] : funcs_) {
-        *fptr = nullptr;
-    }
-    if (lib_ && unload_library(lib_)) {
-        return true;
-    }
-    lib_ = nullptr;
-    return false;
-}
-
-bool
-Plugin::Library::load(const std::filesystem::path &dir) {
-    if (lib_ && unload()) {
-        return true;
-    }
-    lib_ = load_library(dir.string().c_str());
-
-    for (auto &[name, fptr] : funcs_) {
-        *fptr = lib_ ? (Function::Signature)get_library_function(lib_, name.c_str()) : nullptr;
-    }
-
-    return !lib_;
-}
-
-Plugin::Library::Library(Plugin::Library &&other) noexcept {
-    std::swap(this->lib_, other.lib_);
-    std::swap(this->funcs_, other.funcs_);
-}
-
-Plugin::Library &
-Plugin::Library::operator=(Plugin::Library &&other) noexcept {
-    std::swap(this->lib_, other.lib_);
-    std::swap(this->funcs_, other.funcs_);
-    return *this;
 }
 
 //------------------------------------------------------------------------------------
