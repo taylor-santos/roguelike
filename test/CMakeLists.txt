@@ -10,7 +10,8 @@ set(TEST_SRC
         test_transform.cpp
         test_camera.cpp
         test_shader.cpp
-        test_glfw.cpp)
+        test_glfw.cpp
+        test_plugin.cpp)
 
 add_executable(${TEST_NAME}
         test_main.cpp
@@ -28,3 +29,5 @@ target_link_libraries(${TEST_NAME}
 include(${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake)
 doctest_discover_tests(${TEST_NAME}
         ADD_LABELS 1) # https://github.com/onqtam/doctest/pull/490
+
+add_subdirectory(plugins)

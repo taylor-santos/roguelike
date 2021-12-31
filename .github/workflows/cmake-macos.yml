@@ -29,12 +29,11 @@ jobs:
         run: |
           export CC=${{ matrix.compiler.cc }}
           export CXX=${{ matrix.compiler.cxx }}
-          cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DDISABLE_RENDER_TESTS=ON
+          cmake -B ${{ github.workspace }}/build -D CMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -D DISABLE_RENDER_TESTS=ON
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }}
 
       - name: Test
-        uses: GabrielBB/xvfb-action@v1
         with:
           working-directory: ${{ github.workspace }}/build/test
           run: ctest -C ${{ env.BUILD_TYPE }} --rerun-failed --output-on-failure

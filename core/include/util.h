@@ -11,7 +11,24 @@
 #include <iostream>
 #include <filesystem>
 
+#if defined(__clang__)
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Wunknown-warning-option"
+#    pragma clang diagnostic ignored "-Wdeprecated-volatile"
+#elif defined(__GNUC__) || defined(__GNUG__)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wpragmas"
+#    pragma GCC diagnostic ignored "-Wvolatile"
+#endif
+
+#define GLM_FORCE_SILENT_WARNINGS // Suppress 'nonstandard extension used: nameless struct/union'
 #include "glm/glm.hpp"
+
+#if defined(__clang__)
+#    pragma clang diagnostic pop
+#elif defined(__GNUC__) || defined(__GNUG__)
+#    pragma GCC diagnostic pop
+#endif
 
 namespace Util {
 
@@ -32,7 +49,7 @@ namespace Debug {
 
 template<typename... Args>
 void
-log(std::ostream &os, const char *file, int line, const char *func, Args &&...args) {
+debug_log(std::ostream &os, const char *file, int line, const char *func, Args &&...args) {
     using namespace std::chrono;
     auto path    = relative(std::filesystem::path(file));
     auto message = std::stringstream();
@@ -43,8 +60,8 @@ log(std::ostream &os, const char *file, int line, const char *func, Args &&...ar
     os << message.str() << std::endl;
 }
 
-#define err(...) log(std::cerr, __FILE__, __LINE__, __func__, "ERROR: ", __VA_ARGS__)
-#define log(...) log(std::cout, __FILE__, __LINE__, __func__, "DEBUG: ", __VA_ARGS__)
+#define err(...) debug_log(std::cerr, __FILE__, __LINE__, __func__, "ERROR: ", __VA_ARGS__)
+#define log(...) debug_log(std::cout, __FILE__, __LINE__, __func__, "DEBUG: ", __VA_ARGS__)
 
 } // namespace Debug
 

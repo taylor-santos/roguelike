@@ -29,10 +29,35 @@
 
 #include "shader.h"
 
+#include <iostream>
+
+#include "plugin.h"
+
 int
-main(int, char **) {
+main(int argc, char **argv) {
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <plugin directory> [plugin names...]" << std::endl;
+        exit(EXIT_FAILURE);
+    }
     auto &glfw   = GLFW::Manager::get();
     auto &window = GLFW::Window::get(1280, 720, "Roguelike");
+
+    std::vector<std::pair<Plugin, Plugin::Function>> plugins;
+    plugins.reserve(argc - 1);
+    for (int i = 2; i < argc; i++) {
+        try {
+            auto plugin = Plugin(argv[i], argv[1]);
+
+            auto start  = plugin.get_function("start");
+            auto update = plugin.get_function("update");
+
+            start(nullptr);
+
+            plugins.emplace_back(std::move(plugin), update);
+        } catch (const std::exception &e) {
+            std::cerr << "Error loading plugin \"" << argv[i] << "\": " << e.what() << std::endl;
+        }
+    }
 
     Camera camera;
     camera.transform.setPosition({0, 0, 2});
@@ -98,25 +123,24 @@ main(int, char **) {
         style.Colors[ImGuiCol_WindowBg].w = 0.8f;
     }
     // Load Fonts
-    // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple
-    // fonts and use ImGui::PushFont()/PopFont() to select them.
-    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the
-    // font among multiple.
-    // - If the file cannot be loaded, the function will return NULL. Please handle those errors in
-    // your application (e.g. use an assertion, or display an error and quit).
-    // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture
-    // when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below
-    // will call.
+    // - If no fonts are loaded, dear imgui will use the default font. You can also load
+    // multiple fonts and use ImGui::PushFont()/PopFont() to select them.
+    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select
+    // the font among multiple.
+    // - If the file cannot be loaded, the function will return NULL. Please handle those errors
+    // in your application (e.g. use an assertion, or display an error and quit).
+    // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a
+    // texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which
+    // ImGui_ImplXXXX_NewFrame below will call.
     // - Read 'docs/FONTS.md' for more instructions and details.
-    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to
-    // write a double backslash \\ !
-    // io.Fonts->AddFontDefault();
+    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you
+    // need to write a double backslash \\ ! io.Fonts->AddFontDefault();
     // io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
     // io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
     // io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
     // io.Fonts->AddFontFromFileTTF("../../misc/fonts/ProggyTiny.ttf", 10.0f);
-    // ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL,
-    // io.Fonts->GetGlyphRangesJapanese()); IM_ASSERT(font != NULL);
+    // ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f,
+    // NULL, io.Fonts->GetGlyphRangesJapanese()); IM_ASSERT(font != NULL);
 
     const char *VERTEX_SRC =
         "#version 330 core\n"
@@ -138,9 +162,11 @@ main(int, char **) {
         "uniform bool red;"
         "void main()"
         "{"
-        "    outputColor = red ? vec4(1,fColor.y,fColor.z,1) : vec4(fColor, 1.0);" // Color it (r,
-                                                                                   // g, b, 1.0) for
-                                                                                   // fully opaque
+        "    outputColor = red ? vec4(1,fColor.y,fColor.z,1) : vec4(fColor, 1.0);" // Color it
+                                                                                   // (r, g,
+                                                                                   // b, 1.0)
+                                                                                   // for fully
+                                                                                   // opaque
         "}";
     auto program = ShaderProgram::Builder()
                        .withShader(Shader(FRAGMENT_SRC, Shader::Type::FRAGMENT))
@@ -327,6 +353,14 @@ main(int, char **) {
     glfwSwapInterval(0);
     // Main loop
     while (!window.shouldClose()) {
+        for (auto &[plugin, update] : plugins) {
+            if (plugin.reload_if_updated()) {
+                auto start = plugin.get_function("start");
+                start(nullptr);
+            }
+            update(nullptr);
+        }
+
         deltaTime = glfwGetTime() - lastTime;
         lastTime  = glfwGetTime();
 
@@ -361,12 +395,12 @@ main(int, char **) {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You
-        // can browse its code to learn more about Dear ImGui!).
+        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()!
+        // You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window) ImGui::ShowDemoWindow(&show_demo_window);
 
-        // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a
-        // named window.
+        // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created
+        // a named window.
         {
             static float f       = 0.0f;
             static int   counter = 0;
@@ -407,7 +441,8 @@ main(int, char **) {
         if (show_another_window) {
             ImGui::Begin(
                 "Another Window",
-                &show_another_window); // Pass a pointer to our bool variable (the window will have
+                &show_another_window); // Pass a pointer to our bool variable (the window will
+                                       // have
             // a closing button that will clear the bool when clicked)
             ImGui::Text("Hello from another window!");
             if (ImGui::Button("CloseMe")) show_another_window = false;

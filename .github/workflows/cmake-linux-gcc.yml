@@ -1,4 +1,4 @@
-name: CMake Linux Clang
+name: CMake Linux GCC
 
 on: [ push, pull_request ]
 
@@ -12,7 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ ubuntu-18.04, ubuntu-20.04 ]
-        compiler: [ 9, 10, 11, 12 ]
+        compiler: [ 8, 9, 10, 11 ]
         display: [ {
           name: X11,
           cmake: "",
@@ -29,12 +29,11 @@ jobs:
             deps: "libosmesa6-dev",
           } ]
         exclude:
-            # Ubuntu-18.04 doesn't natively include clang-11 or clang-12
+          # Ubuntu-18.04 only supports WaylandProtocols 1.13-1, which is less than the required 1.15
           - platform: ubuntu-18.04
-            compiler: 11
-          - platform: ubuntu-18.04
-            compiler: 12
-    name: ${{ matrix.platform }} ${{ matrix.display.name }} - Clang ${{ matrix.compiler }}
+            display:
+              name: Wayland
+    name: ${{ matrix.platform }} ${{ matrix.display.name }} - GCC ${{ matrix.compiler }}
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v2
@@ -43,12 +42,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-          sudo apt-get install -y xorg-dev libgl1-mesa-dev clang-${{ matrix.compiler }}
+          sudo apt-get install -y ${{ matrix.display.deps }} libgl1-mesa-dev gcc-${{ matrix.compiler }} g++-${{ matrix.compiler }}
+
       - name: Configure CMake
         env:
-          CC: clang-${{ matrix.compiler }}
-          CXX: clang++-${{ matrix.compiler }}
-        run: cmake -B ${{ github.workspace }}/build -D CMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          CC: gcc-${{ matrix.compiler }}
+          CXX: g++-${{ matrix.compiler }}
+        run: cmake -B ${{ github.workspace }}/build -D CMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} ${{ matrix.display.cmake }}
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }}
