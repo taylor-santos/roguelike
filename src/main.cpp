@@ -43,7 +43,7 @@ main(int argc, char **argv) {
     auto &window = GLFW::Window::get(1280, 720, "Roguelike");
 
     std::vector<std::pair<Plugin, Plugin::Function>> plugins;
-    plugins.reserve(argc - 1);
+    plugins.reserve(argc - 2);
     for (int i = 2; i < argc; i++) {
         try {
             auto plugin = Plugin(argv[i], argv[1]);
