@@ -68,9 +68,13 @@ public:
      *         other I/O errors occur.
      */
     Plugin(const std::string &name, const std::filesystem::path &directory);
-    Plugin(Plugin &&) = default;
+    Plugin(Plugin &&other) noexcept;
     Plugin &
-    operator=(Plugin &&) = default;
+    operator=(Plugin &&other) noexcept;
+
+    Plugin(const Plugin &) = delete;
+    Plugin &
+    operator=(const Plugin &) = delete;
 
     ~Plugin();
 
@@ -131,4 +135,7 @@ private:
 
     bool
     unload_lib();
+
+    friend void
+    swap(Plugin &first, Plugin &second) noexcept;
 };

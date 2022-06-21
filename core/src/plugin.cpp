@@ -53,6 +53,17 @@ Plugin::Function::is_valid() const {
     return *fptr_;
 }
 
+void
+swap(Plugin &first, Plugin &second) noexcept {
+    using std::swap;
+    swap(first.lib_name_, second.lib_name_);
+    swap(first.lib_dir_, second.lib_dir_);
+    swap(first.lib_time_, second.lib_time_);
+    swap(first.tmp_dir_, second.tmp_dir_);
+    swap(first.lib_, second.lib_);
+    swap(first.funcs_, second.funcs_);
+}
+
 Plugin::Plugin(const std::string &name, const std::filesystem::path &directory)
     : lib_name_(name)
     , lib_dir_(directory / shared_lib_name(name))
@@ -70,6 +81,16 @@ Plugin::Plugin(const std::string &name, const std::filesystem::path &directory)
         " into ",
         tmp_dir_.string());
     Debug::log(lib_dir_.string(), " has write time ", Util::put_time_point(lib_time_));
+}
+
+Plugin::Plugin(Plugin &&other) noexcept {
+    swap(*this, other);
+}
+
+Plugin &
+Plugin::operator=(Plugin &&other) noexcept {
+    swap(*this, other);
+    return *this;
 }
 
 Plugin::~Plugin() {
